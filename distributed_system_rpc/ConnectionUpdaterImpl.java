@@ -1,26 +1,38 @@
 package distributed_system_rpc;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
-    private HashMap<String, Integer> connectedNodes;
+    // HashMap with IPAddress as key and port as value.
+    private HashSet<NodeIdentity> connectedNodes_;
     private volatile int index = 1;
+    
+    
+    public ConnectionUpdaterImpl() {
+        connectedNodes_ = new HashSet<>();
+    }
 
     @Override
-    public int echo(String IPAddress, int port, String msg) {
-      System.out.println(index+": "+msg);
-      index++;
+    public int echo(NodeIdentity nodeId, String msg) {
+        if (connectedNodes_.contains(nodeId)) {
+            System.out.println(index+": "+msg);
+            index++;
+        } 
       return index;
     }
     
     @Override
-    public String join(String IPAddress, int port) {
-        if (!connectedNodes.containsKey(IPAddress)) {
-            connectedNodes.put(IPAddress, port);
-            return "Join accepted.";
-        } else {
-            return "Join refused.";
+    public HashSet<NodeIdentity> join(NodeIdentity nodeId) {
+        if (!connectedNodes_.contains(nodeId)) {
+            connectedNodes_.add(nodeId);
         }
+        return connectedNodes_;
     }
+    
+ 
+    
 }

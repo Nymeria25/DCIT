@@ -2,7 +2,10 @@ package distributed_system_rpc;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.Set;
 import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
@@ -11,21 +14,29 @@ import org.apache.xmlrpc.client.util.ClientFactory;
 public class RpcClient {
 
     RpcClient(String IPAddress, int port) throws MalformedURLException {
-        IPAddress_ = IPAddress;
-        port_ = port;
         
-        XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-        config.setEnabledForExtensions(true);
-        config.setServerURL(new URL("http", IPAddress, port, "xmlrpc"));
-        rpcClient_ = new XmlRpcClient();
-        rpcClient_.setConfig(config);
+        NodeIdentity nodeId = new NodeIdentity(IPAddress, port);
+        ClientFactory factory = CreateClientFactory(nodeId);
         
-        ClientFactory factory = new ClientFactory(rpcClient_);
-        connectionUpdater_ = (ConnectionUpdaterService) factory.
-                newInstance(ConnectionUpdaterService.class);
+        connectionUpdaters_ = new HashMap<>();
+        UpdateConnectionUpdaters(nodeId, factory);
+        
     }
     
-    void RunClientConsole() throws XmlRpcException {
+    private ClientFactory CreateClientFactory(NodeIdentity nodeId) throws
+            MalformedURLException {
+        XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
+        config.setEnabledForExtensions(true);
+        config.setServerURL(new URL("http", nodeId.getKey(), nodeId.getValue(),
+                "xmlrpc"));
+        
+        // Creates an XmlRpcClient and instantiates a ClientFactory.
+        XmlRpcClient rpcClient = new XmlRpcClient();
+        rpcClient.setConfig(config);        
+        return new ClientFactory(rpcClient);
+    }
+    
+    void RunClientConsole() throws XmlRpcException, MalformedURLException {
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.print("Command: ");
@@ -34,23 +45,52 @@ public class RpcClient {
             if ("$echo".equals(command)) {
                 String message = scanner.next();
                 this.ClientEcho(message);
-            } else if ("$kill".equals(command)) {
+            }
+            else if ("$join".equals(command)) {
+                HashMap<String, Set<Integer>> newNodes = new HashMap<>();
+                System.out.println(newNodes.toString());
+              /*  for (Map.Entry<Pair<String, Integer>, ConnectionUpdaterService>
+                        cuEntry : connectionUpdaters_.entrySet()) {
+                    HashMap<String, Set<Integer>> nodes = cuEntry.getValue().
+                            join(IPAddress_, port_);
+                    newNodes.putAll(nodes);
+                }
+                CreateXmlRpcClients(newNodes);  
+                */
+            }
+            else if ("$kill".equals(command)) {
                 System.exit(0);
             }
             
         }
     }
     
-    void ClientEcho(String message) throws XmlRpcException {
-        connectionUpdater_.echo(IPAddress_, port_, message);    
         
-       /* Object[] params = new Object[]{new Integer(33), new Integer(9)};
-    Integer result = (Integer) rpcClient_.execute("ConnectionUpdaterService.AddNumbers", params); 
-    return result; */
+    void ClientEcho(String message) throws XmlRpcException {
+        for (Map.Entry<NodeIdentity, ConnectionUpdaterService>
+                        cuEntry : connectionUpdaters_.entrySet()) {
+            System.out.println("try to echo");
+            cuEntry.getValue().echo(cuEntry.getKey(), message);
+        }
     }
     
-    private final String IPAddress_;
-    private final int port_;
-    private final XmlRpcClient rpcClient_;
-    private final ConnectionUpdaterService connectionUpdater_;
+     private void UpdateConnectionUpdaters(NodeIdentity nodeId,
+             ClientFactory factory) {
+        if (!connectionUpdaters_.containsKey(nodeId)) {
+            System.out.println("here");
+            ConnectionUpdaterService cu = (ConnectionUpdaterService) factory.
+                newInstance(ConnectionUpdaterService.class);
+            connectionUpdaters_.put(nodeId, cu);
+            System.out.println(connectionUpdaters_.toString());
+        }
+    }
+    
+    
+    
+   // private final String IPAddress_;
+   // private final int port_;
+    // private final HashMap<Map.Entry<String, Integer>, XmlRpcClient> rpcClients_;
+    // private final XmlRpcClient rpcClient_;
+    private final HashMap<NodeIdentity, ConnectionUpdaterService>
+            connectionUpdaters_;
 }
