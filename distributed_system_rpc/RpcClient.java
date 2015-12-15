@@ -49,14 +49,14 @@ public class RpcClient {
             else if ("$join".equals(command)) {
                 HashMap<String, Set<Integer>> newNodes = new HashMap<>();
                 System.out.println(newNodes.toString());
-              /*  for (Map.Entry<Pair<String, Integer>, ConnectionUpdaterService>
+              /*  for (Map.Entry<NodeIdentity, ConnectionUpdaterService>
                         cuEntry : connectionUpdaters_.entrySet()) {
-                    HashMap<String, Set<Integer>> nodes = cuEntry.getValue().
-                            join(IPAddress_, port_);
+                    HashMap<NodeIdentity, ConnectionUpdaterService> nodes = cuEntry.getValue().
+                            join((Object) cuEntry.getKey());
                     newNodes.putAll(nodes);
                 }
-                CreateXmlRpcClients(newNodes);  
-                */
+                CreateXmlRpcClients(newNodes);  */
+                
             }
             else if ("$kill".equals(command)) {
                 System.exit(0);
@@ -69,19 +69,16 @@ public class RpcClient {
     void ClientEcho(String message) throws XmlRpcException {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService>
                         cuEntry : connectionUpdaters_.entrySet()) {
-            System.out.println("try to echo");
-            cuEntry.getValue().echo(cuEntry.getKey(), message);
+            cuEntry.getValue().echo(cuEntry.getKey().toString(), message);
         }
     }
     
      private void UpdateConnectionUpdaters(NodeIdentity nodeId,
              ClientFactory factory) {
         if (!connectionUpdaters_.containsKey(nodeId)) {
-            System.out.println("here");
             ConnectionUpdaterService cu = (ConnectionUpdaterService) factory.
                 newInstance(ConnectionUpdaterService.class);
             connectionUpdaters_.put(nodeId, cu);
-            System.out.println(connectionUpdaters_.toString());
         }
     }
     
