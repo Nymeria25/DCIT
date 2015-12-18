@@ -9,10 +9,12 @@ import java.util.HashSet;
 import java.util.Vector;
 
 public interface ConnectionUpdaterService {
+    public Vector<String> getConnectedNodes();
+    
     // Updates the server's list of nodes.
     // Takes the IPAddress and pot of the new node.
     // 
-    public Vector<String> join(String nodeIdp);
+    public boolean join(String nodeIdp);
     
     // Echoes the message sent in the request.
     // IPAddress is the IP address of the client who performs the request,
@@ -20,4 +22,6 @@ public interface ConnectionUpdaterService {
     // msg is the message sent.
     // Only used for testing.
      public int echo(String nodeIdp, String msg);
+     
+     public boolean print();
   }

@@ -26,6 +26,7 @@ public class RpcServer {
         serverConfig.setEnabledForExtensions(true);
         serverConfig.setContentLengthOptional(false);        
     }
+    
     void startServer() throws IOException{
         webServer_.start();
     }

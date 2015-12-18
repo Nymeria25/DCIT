@@ -16,6 +16,13 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public ConnectionUpdaterImpl() {
         connectedNodes_ = new HashSet<>();
     }
+    
+    public boolean print() {
+        for (NodeIdentity nodeId : connectedNodes_) {
+            System.out.println(nodeId.toString());
+        }
+        return true;
+    }
 
     @Override
      public int echo(String nodeIdp, String msg) {
@@ -31,15 +38,21 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     }
     
     @Override
-    public Vector<String> join(String nodeIdp) {
+    public boolean join(String nodeIdp) {
+        addConnectedNode(nodeIdp);
+        return true;
+    }
+    
+    
+    private void addConnectedNode(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         if (!connectedNodes_.contains(nodeId)) {
             connectedNodes_.add(nodeId);
         }
-        return getConnectedNodes();
     }
     
-    private Vector<String> getConnectedNodes() {
+    @Override
+    public Vector<String> getConnectedNodes() {
         Vector<String> connected = new Vector<>();
         for (NodeIdentity nodeId : connectedNodes_) {
             connected.add(nodeId.toString());

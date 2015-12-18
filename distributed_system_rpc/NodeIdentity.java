@@ -6,6 +6,7 @@
 package distributed_system_rpc;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  *
@@ -33,7 +34,7 @@ import java.util.Map;
             // TODO: maybe log error
             System.err.println("IndexOutOfBoundsException for NodeIdentity"
                     + " parsing!" + e.getMessage());
-            this.key = "";
+            this.key = " ";
             this.value = 0;
         }
         
@@ -42,6 +43,23 @@ import java.util.Map;
     @Override
     public String toString() {
         return key + ":" + String.valueOf(value);
+    }
+    
+    @Override
+    public boolean equals(Object nodeIdp) {
+        if((nodeIdp == null) || (getClass() != nodeIdp.getClass())){
+        return false;
+    } 
+        NodeIdentity nodeId = (NodeIdentity) nodeIdp;
+        return (key.equals(nodeId.getKey())) && (value == nodeId.getValue());
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 3;
+        hash = 79 * hash + Objects.hashCode(this.key);
+        hash = 79 * hash + this.value;
+        return hash;
     }
 
     @Override
