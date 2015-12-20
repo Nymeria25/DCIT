@@ -26,14 +26,11 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     @Override
      public int echo(String nodeIdp, String msg) {
-        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);   
         if (connectedNodes_.contains(nodeId)) {
             System.out.println(index+": "+msg);
             index++;
         }
-      System.out.println(index+": "+msg);
-      index++;
       return index;
     }
     
