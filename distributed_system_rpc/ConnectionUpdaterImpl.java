@@ -12,11 +12,11 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     private HashSet<NodeIdentity> connectedNodes_;
     private volatile int index = 1;
     
-    
     public ConnectionUpdaterImpl() {
         connectedNodes_ = new HashSet<>();
     }
     
+    @Override
     public boolean print() {
         for (NodeIdentity nodeId : connectedNodes_) {
             System.out.println(nodeId.toString());
@@ -37,6 +37,13 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     @Override
     public boolean join(String nodeIdp) {
         addConnectedNode(nodeIdp);
+        return true;
+    }
+    
+    @Override
+    public boolean signOff(String nodeIdp) {
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        connectedNodes_.remove(nodeId);
         return true;
     }
     

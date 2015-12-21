@@ -14,50 +14,69 @@ import org.apache.xmlrpc.client.util.ClientFactory;
 
 public class RpcClient {
 
-    RpcClient(String IPAddress, int port, int serverPort) throws
-            MalformedURLException {
+    RpcClient(NodeIdentity nodeServerNodeId, NodeIdentity primaryServerNodeId)
+            throws MalformedURLException {
         connectionUpdaters_ = new ConcurrentHashMap<>();
 
-        nodeServerNodeId_ = new NodeIdentity(IPAddress, serverPort);
+        nodeServerNodeId_ = nodeServerNodeId;
         ClientFactory nodeServerFactory = CreateClientFactory(
                 nodeServerNodeId_);
         nodeServer_ = (ConnectionUpdaterService) nodeServerFactory.
                 newInstance(ConnectionUpdaterService.class);
 
-        primaryServerNodeId_ = new NodeIdentity(IPAddress, port);
+        primaryServerNodeId_ = primaryServerNodeId;
         ClientFactory primaryServerFactory = CreateClientFactory(
                 primaryServerNodeId_);
         primaryServer_ = (ConnectionUpdaterService) primaryServerFactory.
                 newInstance(ConnectionUpdaterService.class);
 
         AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
+        primaryServer_.join(nodeServerNodeId_.toString());
+        UpdateNodeList();
     }
 
     // Updates the hashmap of connected nodes.
-    public void UpdateNodeList() throws MalformedURLException {
+    public final void UpdateNodeList() throws MalformedURLException {
         // Gets the list of connected nodes from the node with which we first
         // established the connection.
-        Vector<String> nodes = primaryServer_.getConnectedNodes();
-        HashSet<NodeIdentity> connectedNodesIds = new HashSet<>();
-        for (String node : nodes) {
-            NodeIdentity nodeId = new NodeIdentity(node);
-            connectedNodesIds.add(nodeId);
-        }
+
+        try {
+            Vector<String> nodes = primaryServer_.getConnectedNodes();
+            HashSet<NodeIdentity> connectedNodesIds = new HashSet<>();
+            for (String node : nodes) {
+                NodeIdentity nodeId = new NodeIdentity(node);
+                connectedNodesIds.add(nodeId);
+            }
 
         // Removes the connection updater sevices from the hashmap that no
-        // longer exist in the list of connected nodes (because nodes have
-        // signed off).
-        RemoveDisconnectedNodes(connectedNodesIds);
+            // longer exist in the list of connected nodes (because nodes have
+            // signed off).
+            RemoveDisconnectedNodes(connectedNodesIds);
 
         // Creates new connection updater services for the new nodes and adds
-        // them to the hashmap.
-        AddNewlyConnectedNodes(connectedNodesIds);
+            // them to the hashmap.
+            AddNewlyConnectedNodes(connectedNodesIds);
 
+        } catch (Exception e) {
+            System.err.println("Primary server has disconnected. Selecting"
+                    + " a new one.");
+
+            connectionUpdaters_.remove(primaryServerNodeId_);
+
+            if (connectionUpdaters_.size() > 0) {
+                primaryServer_ = connectionUpdaters_.entrySet().iterator().next().
+                        getValue();
+                primaryServerNodeId_ = connectionUpdaters_.entrySet().iterator().
+                        next().getKey();
+            } else {
+                System.err.println("No server available.");
+            }
+        }
     }
 
     // Runs the client console and reads/performs manual commands from keyboard.
     public void RunClientConsole() throws XmlRpcException,
-            MalformedURLException {
+            MalformedURLException, InterruptedException {
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.print("Command: ");
@@ -66,15 +85,19 @@ public class RpcClient {
             if ("$echo".equals(command)) {
                 String message = scanner.next();
                 this.ClientEcho(message);
-            } else if ("$join".equals(command)) {
-                primaryServer_.join(nodeServerNodeId_.toString());
-                UpdateNodeList();
-
             } else if ("$print".equals(command)) {
                 nodeServer_.print();
             } else if ("$kill".equals(command)) {
+                ClientSignOff();
                 System.exit(0);
             }
+        }
+    }
+
+    public void ClientSignOff() {
+        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                : connectionUpdaters_.entrySet()) {
+            cuEntry.getValue().signOff(nodeServerNodeId_.toString());
         }
     }
 
@@ -138,8 +161,7 @@ public class RpcClient {
     // connectionUpdaters_ contains any nodes which are not there. If that is
     // the case, it means that those nodes have disconnected in the meantime 
     // and we remove them.
-    private void RemoveDisconnectedNodes(HashSet<NodeIdentity>
-            connectedNodesIds) {
+    private void RemoveDisconnectedNodes(HashSet<NodeIdentity> connectedNodesIds) {
         HashSet<NodeIdentity> removableNodeIds = new HashSet<>();
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -166,13 +188,12 @@ public class RpcClient {
         return new ClientFactory(rpcClient);
     }
 
-    private final ConcurrentHashMap<NodeIdentity, ConnectionUpdaterService>
-            connectionUpdaters_;
+    private final ConcurrentHashMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
     // The connection updater service that works as the server function of this
     // node.
     ConnectionUpdaterService nodeServer_;
     // The first server of the network to which this node was connected (when
     // it was instantiated.
     ConnectionUpdaterService primaryServer_;
-    private final NodeIdentity nodeServerNodeId_, primaryServerNodeId_;
+    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_;
 }

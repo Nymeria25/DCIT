@@ -6,7 +6,9 @@
 package distributed_system_rpc;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -20,7 +22,8 @@ import org.apache.xmlrpc.XmlRpcException;
  */
 public class NetworkNodeMain {
 
-    public static void main(String[] args) throws IOException, XmlRpcException {
+    public static void main(String[] args) throws IOException, XmlRpcException, 
+            MalformedURLException, InterruptedException {
 
         System.out.print("Run on port: ");
         Scanner scanner = new Scanner(System.in);
@@ -30,16 +33,17 @@ public class NetworkNodeMain {
         rpcServer.startServer();
 
         System.out.print("Connect to IP address and port: ");
-        String IpAdress = scanner.next();
-        int clientPort = scanner.nextInt();
-        final RpcClient rpcClient = new RpcClient(IpAdress, clientPort, serverPort);
-
-        // for each node we connect to, we need to create a new XmlRpcClient.
-        // so that we can invoke a method on any of the other nodes?
+        String primaryServerIpAddress = scanner.next();
+        int primaryServerPort = scanner.nextInt();
+        
+        NodeIdentity serverId = new NodeIdentity(InetAddress.getLocalHost().
+                getHostAddress(), serverPort);
+        NodeIdentity primaryServerId = new NodeIdentity(primaryServerIpAddress,
+                primaryServerPort);  
+        final RpcClient rpcClient = new RpcClient(serverId, primaryServerId);
 
        
          TimerTask timerTask = new TimerTask() {
-
             @Override
             public void run() {
                 try {

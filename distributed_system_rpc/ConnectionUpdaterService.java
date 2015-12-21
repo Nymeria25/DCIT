@@ -16,6 +16,9 @@ public interface ConnectionUpdaterService {
     // 
     public boolean join(String nodeIdp);
     
+    // Signs off the node with the node identity nodeIdp.
+    public boolean signOff(String nodeIdp);
+    
     // Echoes the message sent in the request.
     // IPAddress is the IP address of the client who performs the request,
     // running on port port.
