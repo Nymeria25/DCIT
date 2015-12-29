@@ -48,14 +48,14 @@ public class NetworkNodeMain {
             @Override
             public void run() {
                 try {
-                    rpcClient.UpdateNodeList();
+                    rpcClient.UpdateNetwork();
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(NetworkNodeMain.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         };
 
-        Timer timer = new Timer("WhatAHorribleIdea");//create a new Timer
+        Timer timer = new Timer("WhatAHorribleIdea"); //create a new Timer
         timer.scheduleAtFixedRate(timerTask, 30, 30);
         
         rpcClient.RunClientConsole();

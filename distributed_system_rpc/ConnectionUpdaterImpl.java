@@ -1,9 +1,6 @@
 package distributed_system_rpc;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.Vector;
 
 public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
@@ -47,6 +44,12 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;
     }
     
+    @Override
+    public boolean reportFailure(String nodeIdp) {
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        connectedNodes_.remove(nodeId);
+        return true;
+    }
     
     private void addConnectedNode(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
@@ -63,7 +66,5 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         }
         return connected;
     }
-    
- 
-    
+
 }

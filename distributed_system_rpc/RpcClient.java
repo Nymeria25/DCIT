@@ -33,11 +33,11 @@ public class RpcClient {
 
         AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
         primaryServer_.join(nodeServerNodeId_.toString());
-        UpdateNodeList();
+        UpdateNetwork();
     }
 
-    // Updates the hashmap of connected nodes.
-    public final void UpdateNodeList() throws MalformedURLException {
+    // Updates the hashmap of connected nodes and elects the master node.
+    public final void UpdateNetwork() throws MalformedURLException {
         // Gets the list of connected nodes from the node with which we first
         // established the connection.
 
@@ -49,15 +49,16 @@ public class RpcClient {
                 connectedNodesIds.add(nodeId);
             }
 
-            // Removes the connection updater sevices from the hashmap that no
+            // Removes the connection updater services from the hashmap that no
             // longer exist in the list of connected nodes (because nodes have
             // signed off).
-            RemoveDisconnectedNodes(connectedNodesIds);
+            RemoveInexistentNodes(connectedNodesIds);
 
             // Creates new connection updater services for the new nodes and adds
             // them to the hashmap.
             AddNewlyConnectedNodes(connectedNodesIds);
             
+            // Elects the master node of the network.
             UpdateMasterNode();
 
         } catch (Exception e) {
@@ -99,15 +100,19 @@ public class RpcClient {
         }
     }
 
-    public void ClientSignOff() {
+    public void ClientSignOff() throws MalformedURLException {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
-            cuEntry.getValue().signOff(nodeServerNodeId_.toString());
+            try {
+                cuEntry.getValue().signOff(nodeServerNodeId_.toString());
+            } catch (Exception e) {
+                ReportFailureToNetworkServers(cuEntry.getKey());
+            }
         }
     }
 
     // Sends a message to all the nodes in the network.
-    public void ClientEcho(String message) throws XmlRpcException {
+    public void ClientEcho(String message) throws XmlRpcException, MalformedURLException {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             // Tries to send a request to this node. (The node might be
@@ -118,7 +123,9 @@ public class RpcClient {
                 System.err.println(cuEntry.getKey().toString() +
                         " has disconnected. Echo failed.");
                 
-                // TODO: update the list of connected nodes.
+                // Reports failure to all the non-crashed nodes.
+                System.out.println("Reporting " + cuEntry.getKey().toString());
+                ReportFailureToNetworkServers(cuEntry.getKey());
             } 
         }
     }
@@ -175,7 +182,7 @@ public class RpcClient {
     // connectionUpdaters_ contains any nodes which are not there. If that is
     // the case, it means that those nodes have disconnected in the meantime 
     // and we remove them.
-    private void RemoveDisconnectedNodes(HashSet<NodeIdentity> connectedNodesIds) {
+    private void RemoveInexistentNodes(HashSet<NodeIdentity> connectedNodesIds) {
         HashSet<NodeIdentity> removableNodeIds = new HashSet<>();
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -187,6 +194,22 @@ public class RpcClient {
         for (NodeIdentity nodeId : removableNodeIds) {
             connectionUpdaters_.remove(nodeId);
         }
+    }
+    
+    private void ReportFailureToNetworkServers(NodeIdentity nodeId) throws 
+            MalformedURLException {
+        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                : connectionUpdaters_.entrySet()) {
+            // Tries to send a request of failure report to this node. (The node
+            //  might be disconnected.)
+            try {
+                cuEntry.getValue().reportFailure(nodeId.toString());
+            } catch(Exception e) {
+                System.err.println(cuEntry.getKey().toString() +
+                        " has disconnected or failed.");
+            } 
+        }
+        UpdateNetwork();
     }
     
     private void UpdateMasterNode() {
@@ -219,5 +242,6 @@ public class RpcClient {
     // The first server of the network to which this node was connected (when
     // it was instantiated.
     ConnectionUpdaterService primaryServer_, masterServer_;
-    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_, masterServerNodeId_;
+    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_, 
+            masterServerNodeId_;
 }
