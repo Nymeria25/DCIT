@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
@@ -16,7 +16,8 @@ public class RpcClient {
 
     RpcClient(NodeIdentity nodeServerNodeId, NodeIdentity primaryServerNodeId)
             throws MalformedURLException {
-        connectionUpdaters_ = new ConcurrentHashMap<>();
+        NodeIdentityComparator comparator = new NodeIdentityComparator();
+        connectionUpdaters_ = new ConcurrentSkipListMap<>(comparator);
 
         nodeServerNodeId_ = nodeServerNodeId;
         ClientFactory nodeServerFactory = CreateClientFactory(
@@ -48,14 +49,16 @@ public class RpcClient {
                 connectedNodesIds.add(nodeId);
             }
 
-        // Removes the connection updater sevices from the hashmap that no
+            // Removes the connection updater sevices from the hashmap that no
             // longer exist in the list of connected nodes (because nodes have
             // signed off).
             RemoveDisconnectedNodes(connectedNodesIds);
 
-        // Creates new connection updater services for the new nodes and adds
+            // Creates new connection updater services for the new nodes and adds
             // them to the hashmap.
             AddNewlyConnectedNodes(connectedNodesIds);
+            
+            UpdateMasterNode();
 
         } catch (Exception e) {
             System.err.println("Primary server has disconnected. Selecting"
@@ -87,6 +90,8 @@ public class RpcClient {
                 this.ClientEcho(message);
             } else if ("$print".equals(command)) {
                 nodeServer_.print();
+            } else if ("$print_master".equals(command)) {
+                System.out.println("MASTER: " + masterServerNodeId_.toString());
             } else if ("$kill".equals(command)) {
                 ClientSignOff();
                 System.exit(0);
@@ -101,11 +106,20 @@ public class RpcClient {
         }
     }
 
-    // Sends a message to all the nodes in the network. 
+    // Sends a message to all the nodes in the network.
     public void ClientEcho(String message) throws XmlRpcException {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
-            cuEntry.getValue().echo(cuEntry.getKey().toString(), message);
+            // Tries to send a request to this node. (The node might be
+            // disconnected.)
+            try {
+                cuEntry.getValue().echo(cuEntry.getKey().toString(), message);
+            } catch(Exception e) {
+                System.err.println(cuEntry.getKey().toString() +
+                        " has disconnected. Echo failed.");
+                
+                // TODO: update the list of connected nodes.
+            } 
         }
     }
 
@@ -174,6 +188,15 @@ public class RpcClient {
             connectionUpdaters_.remove(nodeId);
         }
     }
+    
+    private void UpdateMasterNode() {
+        if (connectionUpdaters_.size() > 0) {
+                masterServer_ = connectionUpdaters_.entrySet().iterator().next().
+                        getValue();
+                masterServerNodeId_ = connectionUpdaters_.entrySet().iterator().
+                        next().getKey();
+            }
+    }
 
     private ClientFactory CreateClientFactory(NodeIdentity nodeId) throws
             MalformedURLException {
@@ -188,12 +211,13 @@ public class RpcClient {
         return new ClientFactory(rpcClient);
     }
 
-    private final ConcurrentHashMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
+    private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> 
+            connectionUpdaters_;
     // The connection updater service that works as the server function of this
     // node.
     ConnectionUpdaterService nodeServer_;
     // The first server of the network to which this node was connected (when
     // it was instantiated.
-    ConnectionUpdaterService primaryServer_;
-    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_;
+    ConnectionUpdaterService primaryServer_, masterServer_;
+    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_, masterServerNodeId_;
 }

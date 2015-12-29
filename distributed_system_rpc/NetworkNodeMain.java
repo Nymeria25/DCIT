@@ -43,6 +43,7 @@ public class NetworkNodeMain {
         final RpcClient rpcClient = new RpcClient(serverId, primaryServerId);
 
        
+        // maybe remove timer and leave this run sequencially in a thread here?
          TimerTask timerTask = new TimerTask() {
             @Override
             public void run() {
@@ -55,7 +56,7 @@ public class NetworkNodeMain {
         };
 
         Timer timer = new Timer("WhatAHorribleIdea");//create a new Timer
-        timer.scheduleAtFixedRate(timerTask, 30, 3000);
+        timer.scheduleAtFixedRate(timerTask, 30, 30);
         
         rpcClient.RunClientConsole();
     }

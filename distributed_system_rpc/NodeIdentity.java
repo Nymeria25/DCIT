@@ -1,19 +1,13 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package distributed_system_rpc;
 
 import java.util.Map;
 import java.util.Objects;
 
-/**
- *
- * @author Lavinia
- */
+
 // Stores the IPAddress and port for a node.
-    public class NodeIdentity implements Map.Entry<String, Integer> {
+ public class NodeIdentity implements Map.Entry<String, Integer>, 
+         Comparable<NodeIdentity> {
+     
     private String key;
     private int value;
 
@@ -53,6 +47,11 @@ import java.util.Objects;
         NodeIdentity nodeId = (NodeIdentity) nodeIdp;
         return (key.equals(nodeId.getKey())) && (value == nodeId.getValue());
     }
+    
+    @Override
+    public int compareTo(NodeIdentity ni) {
+        return this.toString().compareTo(ni.toString());
+    }
 
     @Override
     public int hashCode() {
@@ -78,6 +77,7 @@ import java.util.Objects;
         this.value = value;
         return old;
     }
+
     }
 
 
