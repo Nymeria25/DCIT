@@ -32,7 +32,7 @@ public class RpcClient {
                 newInstance(ConnectionUpdaterService.class);
 
         AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
-        primaryServer_.join(nodeServerNodeId_.toString());
+        primaryServer_.joinNetwork(nodeServerNodeId_.toString());
         UpdateNetwork();
     }
 
@@ -104,7 +104,7 @@ public class RpcClient {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             try {
-                cuEntry.getValue().signOff(nodeServerNodeId_.toString());
+                cuEntry.getValue().removeFromNetwork(nodeServerNodeId_.toString());
             } catch (Exception e) {
                 ReportFailureToNetworkServers(cuEntry.getKey());
             }
@@ -172,7 +172,7 @@ public class RpcClient {
         if (updated) {
             for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                     : connectionUpdaters_.entrySet()) {
-                cuEntry.getValue().join(
+                cuEntry.getValue().joinNetwork(
                         nodeServerNodeId_.toString());
             }
         }
@@ -200,10 +200,10 @@ public class RpcClient {
             MalformedURLException {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
-            // Tries to send a request of failure report to this node. (The node
-            //  might be disconnected.)
+            // Tries to send a request to remove nodeId from the network. (The 
+            // server to which we send the request might be disconnected.)
             try {
-                cuEntry.getValue().reportFailure(nodeId.toString());
+                cuEntry.getValue().removeFromNetwork(nodeId.toString());
             } catch(Exception e) {
                 System.err.println(cuEntry.getKey().toString() +
                         " has disconnected or failed.");
