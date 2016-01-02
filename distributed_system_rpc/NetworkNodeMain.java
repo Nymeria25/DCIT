@@ -22,7 +22,7 @@ import org.apache.xmlrpc.XmlRpcException;
  */
 public class NetworkNodeMain {
 
-    public static void main(String[] args) throws IOException, XmlRpcException, 
+    public static void main(String[] args) throws IOException, XmlRpcException,
             MalformedURLException, InterruptedException {
 
         System.out.print("Run on port: ");
@@ -35,29 +35,34 @@ public class NetworkNodeMain {
         System.out.print("Connect to IP address and port: ");
         String primaryServerIpAddress = scanner.next();
         int primaryServerPort = scanner.nextInt();
-        
+
         NodeIdentity serverId = new NodeIdentity(InetAddress.getLocalHost().
                 getHostAddress(), serverPort);
         NodeIdentity primaryServerId = new NodeIdentity(primaryServerIpAddress,
-                primaryServerPort);  
+                primaryServerPort);
         final RpcClient rpcClient = new RpcClient(serverId, primaryServerId);
 
-       
-        // maybe remove timer and leave this run sequencially in a thread here?
-         TimerTask timerTask = new TimerTask() {
-            @Override
+        Thread t = new Thread() {
             public void run() {
                 try {
+                    while(true) {
+                   // System.out.println("in za thread");
+                    Thread.sleep(generateRandomNumber(500,1000));
                     rpcClient.UpdateNetwork();
+                    }
                 } catch (MalformedURLException ex) {
+                    Logger.getLogger(NetworkNodeMain.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (InterruptedException ex) {
                     Logger.getLogger(NetworkNodeMain.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         };
+        t.start();
 
-        Timer timer = new Timer("WhatAHorribleIdea"); //create a new Timer
-        timer.scheduleAtFixedRate(timerTask, 30, 3000);
-        
         rpcClient.RunClientConsole();
+    }
+    
+    static int generateRandomNumber(int Min, int Max) {
+        return Min + (int)(Math.random() * ((Max - Min) + 1));
     }
 };

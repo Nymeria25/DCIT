@@ -13,29 +13,40 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         networkUpdate_ = false;
     }
     
-    @Override
+    
     // If the critical zone with the list of nodes is not accessed by other node
     // at the moment of call, returns true.
     // Otherwise, blocks the caller until the critical zone with the list of
     // nodes is free again and then returns true.
+    @Override
     public boolean performNetworkUpdate(String nodeIdp) {
-        // Block the client while other node is performing updates.
-        while(networkUpdate_ == true) {}
-        
-        // The critical zone of connected nodes is free.
-        networkUpdate_ = true;
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         networkUpdateQueue_.add(nodeId);
         
+       /* System.out.println("Trying to update");
+        System.out.println("networkUpdate_ = " + networkUpdate_);
+        System.out.println("Top of queue = " + networkUpdateQueue_.peek().toString());
+               */
+        
+        // Block the client while other node is performing updates.
+        while(!(networkUpdate_ == false && networkUpdateQueue_.peek() == nodeId)) {}
+        
+        // The critical zone of connected nodes is free.
+        // That is, nodeId is on top of the queue and no one is updating the
+        // network at this time (networkUpdate_ = false).
+        networkUpdate_ = true;        
         return true;
     }
 
     @Override
-    public boolean doneNetworkUpdate() {
-        networkUpdate_ = false;
-        networkUpdateQueue_.poll();
-        
-        return true;
+    public boolean doneNetworkUpdate(String nodeIdp) {
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        if (nodeId.equals(networkUpdateQueue_.peek())) {
+            networkUpdate_ = false;
+            networkUpdateQueue_.poll();
+            return true;
+        }
+        return false;
     }
    
     @Override

@@ -32,7 +32,8 @@ public class RpcClient {
                 newInstance(ConnectionUpdaterService.class);
 
         AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
-        primaryServer_.joinNetwork(nodeServerNodeId_.toString());
+        JoinNetworkImpl(primaryServer_, nodeServerNodeId_);
+        // primaryServer_.joinNetwork(nodeServerNodeId_.toString());
         UpdateNetwork();
     }
 
@@ -104,7 +105,8 @@ public class RpcClient {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             try {
-                cuEntry.getValue().removeFromNetwork(nodeServerNodeId_.toString());
+                RemoveFromNetworkImpl(cuEntry.getValue(), nodeServerNodeId_);
+               // cuEntry.getValue().removeFromNetwork(nodeServerNodeId_.toString());
             } catch (Exception e) {
                 ReportFailureToNetworkServers(cuEntry.getKey());
             }
@@ -131,6 +133,20 @@ public class RpcClient {
     }
 
     // ------------------ Private  -------------------
+    
+    private void JoinNetworkImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
+        cu.performNetworkUpdate(nodeServerNodeId_.toString());
+        cu.joinNetwork(ni.toString());
+        cu.doneNetworkUpdate(nodeServerNodeId_.toString());
+    }
+    
+    private void RemoveFromNetworkImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
+        cu.performNetworkUpdate(nodeServerNodeId_.toString());
+        cu.removeFromNetwork(ni.toString());
+        cu.doneNetworkUpdate(nodeServerNodeId_.toString());
+    }
+    
+    
     // Adds a new ConnectionUpdater object in the hashmap, for the specified
     // NodeIdentity.
     // If the node already exists in the hashmap of nodes, returns false and
@@ -172,8 +188,9 @@ public class RpcClient {
         if (updated) {
             for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                     : connectionUpdaters_.entrySet()) {
-                cuEntry.getValue().joinNetwork(
-                        nodeServerNodeId_.toString());
+                JoinNetworkImpl(cuEntry.getValue(), nodeServerNodeId_);
+             //   cuEntry.getValue().joinNetwork(
+              //          nodeServerNodeId_.toString());
             }
         }
     }
@@ -203,7 +220,8 @@ public class RpcClient {
             // Tries to send a request to remove nodeId from the network. (The 
             // server to which we send the request might be disconnected.)
             try {
-                cuEntry.getValue().removeFromNetwork(nodeId.toString());
+                RemoveFromNetworkImpl(cuEntry.getValue(), nodeId);
+              //  cuEntry.getValue().removeFromNetwork(nodeId.toString());
             } catch(Exception e) {
                 System.err.println(cuEntry.getKey().toString() +
                         " has disconnected or failed.");

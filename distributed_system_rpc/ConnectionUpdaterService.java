@@ -24,7 +24,7 @@ public interface ConnectionUpdaterService {
     
     // Called AFTER the client finished the update of the network. Also,
     // in the case when a node joins, signs off, or fails.
-    public boolean doneNetworkUpdate();
+    public boolean doneNetworkUpdate(String nodeIdp);
     
     // ------------------ Operation Handlers -------------------
     
