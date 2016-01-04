@@ -16,6 +16,8 @@ public class RpcClient {
 
     RpcClient(NodeIdentity nodeServerNodeId, NodeIdentity primaryServerNodeId)
             throws MalformedURLException {
+        SetRPCWaitingTimes();
+        
         NodeIdentityComparator comparator = new NodeIdentityComparator();
         connectionUpdaters_ = new ConcurrentSkipListMap<>(comparator);
 
@@ -33,15 +35,13 @@ public class RpcClient {
 
         AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
         JoinNetworkImpl(primaryServer_, nodeServerNodeId_);
-        // primaryServer_.joinNetwork(nodeServerNodeId_.toString());
         UpdateNetwork();
     }
 
     // Updates the hashmap of connected nodes and elects the master node.
     public final void UpdateNetwork() throws MalformedURLException {
         // Gets the list of connected nodes from the node with which we first
-        // established the connection.
-
+        // established the connection
         try {
             Vector<String> nodes = primaryServer_.getConnectedNodes();
             HashSet<NodeIdentity> connectedNodesIds = new HashSet<>();
@@ -106,7 +106,6 @@ public class RpcClient {
                 : connectionUpdaters_.entrySet()) {
             try {
                 RemoveFromNetworkImpl(cuEntry.getValue(), nodeServerNodeId_);
-               // cuEntry.getValue().removeFromNetwork(nodeServerNodeId_.toString());
             } catch (Exception e) {
                 ReportFailureToNetworkServers(cuEntry.getKey());
             }
@@ -132,7 +131,11 @@ public class RpcClient {
         }
     }
 
-    // ------------------ Private  -------------------
+    // ------------------ Private  -------------------    
+    private void SetRPCWaitingTimes() {
+        xmlrpcConnTimeout_ = 10000;
+        xmlrpcReplyTimeOut_ = 30000;
+    }
     
     private void JoinNetworkImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
         cu.performNetworkUpdate(nodeServerNodeId_.toString());
@@ -189,8 +192,6 @@ public class RpcClient {
             for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                     : connectionUpdaters_.entrySet()) {
                 JoinNetworkImpl(cuEntry.getValue(), nodeServerNodeId_);
-             //   cuEntry.getValue().joinNetwork(
-              //          nodeServerNodeId_.toString());
             }
         }
     }
@@ -221,7 +222,6 @@ public class RpcClient {
             // server to which we send the request might be disconnected.)
             try {
                 RemoveFromNetworkImpl(cuEntry.getValue(), nodeId);
-              //  cuEntry.getValue().removeFromNetwork(nodeId.toString());
             } catch(Exception e) {
                 System.err.println(cuEntry.getKey().toString() +
                         " has disconnected or failed.");
@@ -245,6 +245,8 @@ public class RpcClient {
         config.setEnabledForExtensions(true);
         config.setServerURL(new URL("http", nodeId.getKey(), nodeId.getValue(),
                 "xmlrpc"));
+        config.setConnectionTimeout(xmlrpcConnTimeout_);
+        config.setReplyTimeout(xmlrpcReplyTimeOut_);
 
         // Creates an XmlRpcClient and instantiates a ClientFactory.
         XmlRpcClient rpcClient = new XmlRpcClient();
@@ -259,7 +261,11 @@ public class RpcClient {
     ConnectionUpdaterService nodeServer_;
     // The first server of the network to which this node was connected (when
     // it was instantiated.
-    ConnectionUpdaterService primaryServer_, masterServer_;
+    ConnectionUpdaterService primaryServer_;
+    // The server of the master node.
+    ConnectionUpdaterService masterServer_;
     private NodeIdentity nodeServerNodeId_, primaryServerNodeId_, 
             masterServerNodeId_;
+    // ms for connection timeout and reply timeout.
+    private int xmlrpcConnTimeout_, xmlrpcReplyTimeOut_;
 }

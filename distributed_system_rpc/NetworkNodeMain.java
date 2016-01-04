@@ -8,12 +8,7 @@ package distributed_system_rpc;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
-import java.util.Arrays;
 import java.util.Scanner;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.xmlrpc.XmlRpcException;
 
 /**
@@ -45,15 +40,14 @@ public class NetworkNodeMain {
         Thread t = new Thread() {
             public void run() {
                 try {
-                    while(true) {
-                   // System.out.println("in za thread");
-                    Thread.sleep(generateRandomNumber(500,1000));
-                    rpcClient.UpdateNetwork();
+                    while (true) {
+                        Thread.sleep(generateRandomNumber(500, 1000));
+                        rpcClient.UpdateNetwork();
                     }
                 } catch (MalformedURLException ex) {
-                    Logger.getLogger(NetworkNodeMain.class.getName()).log(Level.SEVERE, null, ex);
+                    System.err.println("Malformed URL.");
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(NetworkNodeMain.class.getName()).log(Level.SEVERE, null, ex);
+                    System.err.println("Interrupted thread.");
                 }
             }
         };
@@ -61,8 +55,8 @@ public class NetworkNodeMain {
 
         rpcClient.RunClientConsole();
     }
-    
+
     static int generateRandomNumber(int Min, int Max) {
-        return Min + (int)(Math.random() * ((Max - Min) + 1));
+        return Min + (int) (Math.random() * ((Max - Min) + 1));
     }
 };
