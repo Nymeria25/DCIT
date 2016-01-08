@@ -11,6 +11,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         connectedNodes_ = new HashSet<>();
         networkUpdateQueue_ = new ArrayDeque<>();
         networkUpdate_ = false;
+        readWriteStatus_ = false;
+        sentence_ = "";
     }
     
     
@@ -22,11 +24,6 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean performNetworkUpdate(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         networkUpdateQueue_.add(nodeId);
-        
-       /* System.out.println("Trying to update");
-        System.out.println("networkUpdate_ = " + networkUpdate_);
-        System.out.println("Top of queue = " + networkUpdateQueue_.peek().toString());
-               */
         
         // Block the client while other node is performing updates.
         while(!(networkUpdate_ == false && networkUpdateQueue_.peek() == nodeId)) {}
@@ -47,6 +44,28 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             return true;
         }
         return false;
+    }
+    
+    @Override
+    public boolean startReadWrite() {
+        readWriteStatus_ = true;
+        return true;
+    }
+    
+    @Override
+    public boolean getReadWriteStatus() {
+        return readWriteStatus_;
+    }
+    
+    @Override
+    public String getSentence() {
+        return sentence_;
+    }
+    
+    @Override
+    public boolean writeSentence(String sentence) {
+        sentence_ = sentence;
+        return true;
     }
    
     @Override
@@ -97,6 +116,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         }
     }
     
+    private boolean readWriteStatus_;
+    
     // Hashset of node identities of the current nodes in the network.
     private HashSet<NodeIdentity> connectedNodes_;
     
@@ -107,6 +128,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     // Queue of the nodes who wait to perform an update to the network nodes.
     // Guards connectedNodes_.
     private Queue<NodeIdentity> networkUpdateQueue_;
+    
+    private String sentence_;
     
     // Used for testing only.
     private volatile int index = 1;

@@ -40,6 +40,14 @@ public interface ConnectionUpdaterService {
     // nodeIdp should be in the form of host:port.
     public boolean removeFromNetwork(String nodeIdp);
     
+    public boolean startReadWrite();
+    
+    public boolean getReadWriteStatus();
+    
+    public String getSentence();
+    
+    public boolean writeSentence(String sentence);
+    
     // ------------------ Testing -------------------
     
     // Echoes the message sent in the request.

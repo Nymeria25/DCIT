@@ -17,7 +17,7 @@ public class RpcClient {
     RpcClient(NodeIdentity nodeServerNodeId, NodeIdentity primaryServerNodeId)
             throws MalformedURLException {
         SetRPCWaitingTimes();
-        
+
         NodeIdentityComparator comparator = new NodeIdentityComparator();
         connectionUpdaters_ = new ConcurrentSkipListMap<>(comparator);
 
@@ -36,6 +36,44 @@ public class RpcClient {
         AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
         JoinNetworkImpl(primaryServer_, nodeServerNodeId_);
         UpdateNetwork();
+    }
+
+    public void ReadWrite() throws InterruptedException {
+        try {
+            if (nodeServer_.getReadWriteStatus()) {
+                String appendedWords = ClientReadWrite();
+                System.out.println("Node sentence: ");
+                System.out.println(appendedWords);
+
+                System.out.println("Master's sentence: ");
+                System.out.println(masterServer_.getSentence());
+                System.exit(0);
+            }
+        } catch (Exception e) {
+            System.err.println("The node server is dead.");
+        }
+
+    }
+
+    private String ClientReadWrite() throws InterruptedException {
+        Dictionary dictionary = new Dictionary();
+
+        int totalTime = 20000; // ms
+        long startTime = System.currentTimeMillis();
+        String clientSentence = "";
+
+        while (System.currentTimeMillis() - startTime < totalTime) {
+            Thread.sleep(generateRandomWaitingTime(500, 1000));
+            try {
+                System.err.println("Inside ClientReadWrite try.");
+                clientSentence = masterServer_.getSentence();
+                clientSentence += dictionary.getRandomWord();
+                masterServer_.writeSentence(clientSentence);
+            } catch (Exception e) {
+
+            }
+        }
+        return clientSentence;
     }
 
     // Updates the hashmap of connected nodes and elects the master node.
@@ -58,7 +96,7 @@ public class RpcClient {
             // Creates new connection updater services for the new nodes and adds
             // them to the hashmap.
             AddNewlyConnectedNodes(connectedNodesIds);
-            
+
             // Elects the master node of the network.
             UpdateMasterNode();
 
@@ -90,6 +128,8 @@ public class RpcClient {
             if ("$echo".equals(command)) {
                 String message = scanner.next();
                 this.ClientEcho(message);
+            } else if ("$rw".equals(command)) {
+                NotifyReadWrite();
             } else if ("$print".equals(command)) {
                 nodeServer_.print();
             } else if ("$print_master".equals(command)) {
@@ -97,6 +137,20 @@ public class RpcClient {
             } else if ("$kill".equals(command)) {
                 ClientSignOff();
                 System.exit(0);
+            }
+        }
+    }
+
+    public void NotifyReadWrite() throws XmlRpcException, MalformedURLException {
+        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                : connectionUpdaters_.entrySet()) {
+            // Tries to send a notification to this node. (The node might be
+            // disconnected.)
+            try {
+                cuEntry.getValue().startReadWrite();
+            } catch (Exception e) {
+                System.err.println(cuEntry.getKey().toString()
+                        + " has disconnected. Notification for read/write failed.");
             }
         }
     }
@@ -120,14 +174,14 @@ public class RpcClient {
             // disconnected.)
             try {
                 cuEntry.getValue().echo(cuEntry.getKey().toString(), message);
-            } catch(Exception e) {
-                System.err.println(cuEntry.getKey().toString() +
-                        " has disconnected. Echo failed.");
-                
+            } catch (Exception e) {
+                System.err.println(cuEntry.getKey().toString()
+                        + " has disconnected. Echo failed.");
+
                 // Reports failure to all the non-crashed nodes.
                 System.out.println("Reporting " + cuEntry.getKey().toString());
                 ReportFailureToNetworkServers(cuEntry.getKey());
-            } 
+            }
         }
     }
 
@@ -136,20 +190,19 @@ public class RpcClient {
         xmlrpcConnTimeout_ = 10000;
         xmlrpcReplyTimeOut_ = 30000;
     }
-    
+
     private void JoinNetworkImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
         cu.performNetworkUpdate(nodeServerNodeId_.toString());
         cu.joinNetwork(ni.toString());
         cu.doneNetworkUpdate(nodeServerNodeId_.toString());
     }
-    
+
     private void RemoveFromNetworkImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
         cu.performNetworkUpdate(nodeServerNodeId_.toString());
         cu.removeFromNetwork(ni.toString());
         cu.doneNetworkUpdate(nodeServerNodeId_.toString());
     }
-    
-    
+
     // Adds a new ConnectionUpdater object in the hashmap, for the specified
     // NodeIdentity.
     // If the node already exists in the hashmap of nodes, returns false and
@@ -213,8 +266,8 @@ public class RpcClient {
             connectionUpdaters_.remove(nodeId);
         }
     }
-    
-    private void ReportFailureToNetworkServers(NodeIdentity nodeId) throws 
+
+    private void ReportFailureToNetworkServers(NodeIdentity nodeId) throws
             MalformedURLException {
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -222,21 +275,21 @@ public class RpcClient {
             // server to which we send the request might be disconnected.)
             try {
                 RemoveFromNetworkImpl(cuEntry.getValue(), nodeId);
-            } catch(Exception e) {
-                System.err.println(cuEntry.getKey().toString() +
-                        " has disconnected or failed.");
-            } 
+            } catch (Exception e) {
+                System.err.println(cuEntry.getKey().toString()
+                        + " has disconnected or failed.");
+            }
         }
         UpdateNetwork();
     }
-    
+
     private void UpdateMasterNode() {
         if (connectionUpdaters_.size() > 0) {
-                masterServer_ = connectionUpdaters_.entrySet().iterator().next().
-                        getValue();
-                masterServerNodeId_ = connectionUpdaters_.entrySet().iterator().
-                        next().getKey();
-            }
+            masterServer_ = connectionUpdaters_.entrySet().iterator().next().
+                    getValue();
+            masterServerNodeId_ = connectionUpdaters_.entrySet().iterator().
+                    next().getKey();
+        }
     }
 
     private ClientFactory CreateClientFactory(NodeIdentity nodeId) throws
@@ -254,8 +307,11 @@ public class RpcClient {
         return new ClientFactory(rpcClient);
     }
 
-    private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> 
-            connectionUpdaters_;
+    private static int generateRandomWaitingTime(int Min, int Max) {
+        return Min + (int) (Math.random() * ((Max - Min) + 1));
+    }
+
+    private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
     // The connection updater service that works as the server function of this
     // node.
     ConnectionUpdaterService nodeServer_;
@@ -264,7 +320,7 @@ public class RpcClient {
     ConnectionUpdaterService primaryServer_;
     // The server of the master node.
     ConnectionUpdaterService masterServer_;
-    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_, 
+    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_,
             masterServerNodeId_;
     // ms for connection timeout and reply timeout.
     private int xmlrpcConnTimeout_, xmlrpcReplyTimeOut_;

@@ -37,7 +37,7 @@ public class NetworkNodeMain {
                 primaryServerPort);
         final RpcClient rpcClient = new RpcClient(serverId, primaryServerId);
 
-        Thread t = new Thread() {
+        Thread t1 = new Thread() {
             public void run() {
                 try {
                     while (true) {
@@ -51,7 +51,21 @@ public class NetworkNodeMain {
                 }
             }
         };
-        t.start();
+        t1.start();
+        
+        Thread t2 = new Thread() {
+            public void run() {
+                try {
+                    while (true) {
+                        Thread.sleep(generateRandomNumber(500, 1000));
+                        rpcClient.ReadWrite();
+                    }
+                } catch (InterruptedException ex) {
+                    System.err.println("Interrupted thread.");
+                }
+            }
+        };
+        t2.start();
 
         rpcClient.RunClientConsole();
     }
