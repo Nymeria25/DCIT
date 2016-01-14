@@ -26,27 +26,45 @@ public interface ConnectionUpdaterService {
     // in the case when a node joins, signs off, or fails.
     public boolean doneNetworkUpdate(String nodeIdp);
     
+    
+    
+    public boolean performSentenceUpdate(String nodeIdp);
+    
+    // Called AFTER the client finished the update of the network. Also,
+    // in the case when a node joins, signs off, or fails.
+    public boolean doneSentenceUpdate(String nodeIdp);
+    
     // ------------------ Operation Handlers -------------------
     
     // Returns a vector of host:port Strings, representing the node identities
     // of the nodes currently in the network.
     public Vector<String> getConnectedNodes();
     
-    // Adds the node nodeIdp to the list of current nodes in the network.
-    // nodeIdp should be in the form of host:port.
+    // DOES STUFF
     public boolean joinNetwork(String nodeIdp);
+    public boolean addNodeToNetwork(String nodeIdp);
     
-    // Removes the node nodeIdp from the list of current nodes in the network.
-    // nodeIdp should be in the form of host:port.
-    public boolean removeFromNetwork(String nodeIdp);
+    // MORE STUFF
+    public boolean signOff(String nodeIdp);
+    public boolean removeNodeFromNetwork(String nodeIdp);
     
-    public boolean startReadWrite();
+    //
+    public boolean readWriteReady(String algorithm);
+    public boolean startReadWrite(String algorithm);
     
-    public boolean getReadWriteStatus();
+    // Returns the name of the algorithm to be performed for read/write.
+    // "Centralized Mutual Exclusion" or "Ricart Agrawala".
+    // If the return String is empty, it means the read/write operation
+    // should not start yet.
+    public String getReadWriteStatus();
     
+    //
     public String getSentence();
+    public String getSentenceFromMaster();
     
+    //
     public boolean writeSentence(String sentence);
+    public boolean writeSentenceToMaster(String sentence);
     
     // ------------------ Testing -------------------
     
@@ -54,7 +72,7 @@ public interface ConnectionUpdaterService {
     // nodeIdp is the node identity of the sender and should be in the form of
     // host:port.
     // msg is the message sent.
-    public int echo(String nodeIdp, String msg);
+   // public int echo(String nodeIdp, String msg);
      
     // Prints to output stream the list of nodes currently connected to the
     // network.

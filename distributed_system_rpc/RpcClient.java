@@ -18,35 +18,25 @@ public class RpcClient {
             throws MalformedURLException {
         SetRPCWaitingTimes();
 
-        NodeIdentityComparator comparator = new NodeIdentityComparator();
-        connectionUpdaters_ = new ConcurrentSkipListMap<>(comparator);
-
         nodeServerNodeId_ = nodeServerNodeId;
         ClientFactory nodeServerFactory = CreateClientFactory(
                 nodeServerNodeId_);
         nodeServer_ = (ConnectionUpdaterService) nodeServerFactory.
                 newInstance(ConnectionUpdaterService.class);
-
-        primaryServerNodeId_ = primaryServerNodeId;
-        ClientFactory primaryServerFactory = CreateClientFactory(
-                primaryServerNodeId_);
-        primaryServer_ = (ConnectionUpdaterService) primaryServerFactory.
-                newInstance(ConnectionUpdaterService.class);
-
-        AddConnectionUpdater(nodeServerNodeId_, nodeServer_);
-        JoinNetworkImpl(primaryServer_, nodeServerNodeId_);
-        UpdateNetwork();
+        
+        JoinNetworkImpl(nodeServer_, primaryServerNodeId);
     }
 
     public void ReadWrite() throws InterruptedException {
         try {
-            if (nodeServer_.getReadWriteStatus()) {
-                String appendedWords = ClientReadWrite();
+            String algorithm = nodeServer_.getReadWriteStatus();
+            if (algorithm.length() > 0) {
+                String appendedWords = ClientReadWrite(algorithm);
                 System.out.println("Node sentence: ");
                 System.out.println(appendedWords);
 
                 System.out.println("Master's sentence: ");
-                System.out.println(masterServer_.getSentence());
+                System.out.println(nodeServer_.getSentenceFromMaster());
                 System.exit(0);
             }
         } catch (Exception e) {
@@ -55,7 +45,7 @@ public class RpcClient {
 
     }
 
-    private String ClientReadWrite() throws InterruptedException {
+    private String ClientReadWrite(String algorithm) throws InterruptedException {
         Dictionary dictionary = new Dictionary();
 
         int totalTime = 20000; // ms
@@ -65,10 +55,16 @@ public class RpcClient {
         while (System.currentTimeMillis() - startTime < totalTime) {
             Thread.sleep(generateRandomWaitingTime(500, 1000));
             try {
-                System.err.println("Inside ClientReadWrite try.");
-                clientSentence = masterServer_.getSentence();
+                clientSentence = nodeServer_.getSentenceFromMaster();
                 clientSentence += dictionary.getRandomWord();
-                masterServer_.writeSentence(clientSentence);
+                if (algorithm.equals("Centralized Mutual Exclusion")) {
+                    nodeServer_.performSentenceUpdate(nodeServerNodeId_.toString());
+                    nodeServer_.writeSentenceToMaster(clientSentence);
+                    nodeServer_.doneSentenceUpdate(nodeServerNodeId_.toString());
+                } else {
+                    
+                }
+                
             } catch (Exception e) {
 
             }
@@ -76,47 +72,7 @@ public class RpcClient {
         return clientSentence;
     }
 
-    // Updates the hashmap of connected nodes and elects the master node.
-    public final void UpdateNetwork() throws MalformedURLException {
-        // Gets the list of connected nodes from the node with which we first
-        // established the connection
-        try {
-            Vector<String> nodes = primaryServer_.getConnectedNodes();
-            HashSet<NodeIdentity> connectedNodesIds = new HashSet<>();
-            for (String node : nodes) {
-                NodeIdentity nodeId = new NodeIdentity(node);
-                connectedNodesIds.add(nodeId);
-            }
-
-            // Removes the connection updater services from the hashmap that no
-            // longer exist in the list of connected nodes (because nodes have
-            // signed off).
-            RemoveInexistentNodes(connectedNodesIds);
-
-            // Creates new connection updater services for the new nodes and adds
-            // them to the hashmap.
-            AddNewlyConnectedNodes(connectedNodesIds);
-
-            // Elects the master node of the network.
-            UpdateMasterNode();
-
-        } catch (Exception e) {
-            System.err.println("Primary server has disconnected. Selecting"
-                    + " a new one.");
-
-            connectionUpdaters_.remove(primaryServerNodeId_);
-
-            if (connectionUpdaters_.size() > 0) {
-                primaryServer_ = connectionUpdaters_.entrySet().iterator().next().
-                        getValue();
-                primaryServerNodeId_ = connectionUpdaters_.entrySet().iterator().
-                        next().getKey();
-            } else {
-                System.err.println("No server available.");
-            }
-        }
-    }
-
+ 
     // Runs the client console and reads/performs manual commands from keyboard.
     public void RunClientConsole() throws XmlRpcException,
             MalformedURLException, InterruptedException {
@@ -127,60 +83,22 @@ public class RpcClient {
 
             if ("$echo".equals(command)) {
                 String message = scanner.next();
-                this.ClientEcho(message);
-            } else if ("$rw".equals(command)) {
-                NotifyReadWrite();
+               // this.ClientEcho(message);
+            } else if ("$rwc".equals(command)) {
+               nodeServer_.readWriteReady("Centralized Mutual Exclusion");
+            } else if ("$rwra".equals(command)) {
+               nodeServer_.readWriteReady("Centralized Mutual Exclusion");
             } else if ("$print".equals(command)) {
                 nodeServer_.print();
-            } else if ("$print_master".equals(command)) {
-                System.out.println("MASTER: " + masterServerNodeId_.toString());
+            } else if ("$help".equals(command)) {
+                System.out.println("Possible commands:");
+                System.out.println("$rwc read/write with Centralized Mutual Exclusion.");
+                System.out.println("$rwra read/write with Ricart Agrawala.");
+                System.out.println("$print prints the latest updated list of nodes in the network.");
+                System.out.println("$kill signs off node.");
             } else if ("$kill".equals(command)) {
-                ClientSignOff();
+                SignOffImpl(nodeServer_, nodeServerNodeId_);
                 System.exit(0);
-            }
-        }
-    }
-
-    public void NotifyReadWrite() throws XmlRpcException, MalformedURLException {
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            // Tries to send a notification to this node. (The node might be
-            // disconnected.)
-            try {
-                cuEntry.getValue().startReadWrite();
-            } catch (Exception e) {
-                System.err.println(cuEntry.getKey().toString()
-                        + " has disconnected. Notification for read/write failed.");
-            }
-        }
-    }
-
-    public void ClientSignOff() throws MalformedURLException {
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            try {
-                RemoveFromNetworkImpl(cuEntry.getValue(), nodeServerNodeId_);
-            } catch (Exception e) {
-                ReportFailureToNetworkServers(cuEntry.getKey());
-            }
-        }
-    }
-
-    // Sends a message to all the nodes in the network.
-    public void ClientEcho(String message) throws XmlRpcException, MalformedURLException {
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            // Tries to send a request to this node. (The node might be
-            // disconnected.)
-            try {
-                cuEntry.getValue().echo(cuEntry.getKey().toString(), message);
-            } catch (Exception e) {
-                System.err.println(cuEntry.getKey().toString()
-                        + " has disconnected. Echo failed.");
-
-                // Reports failure to all the non-crashed nodes.
-                System.out.println("Reporting " + cuEntry.getKey().toString());
-                ReportFailureToNetworkServers(cuEntry.getKey());
             }
         }
     }
@@ -197,101 +115,12 @@ public class RpcClient {
         cu.doneNetworkUpdate(nodeServerNodeId_.toString());
     }
 
-    private void RemoveFromNetworkImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
+    private void SignOffImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
         cu.performNetworkUpdate(nodeServerNodeId_.toString());
-        cu.removeFromNetwork(ni.toString());
+        cu.signOff(ni.toString());
         cu.doneNetworkUpdate(nodeServerNodeId_.toString());
     }
-
-    // Adds a new ConnectionUpdater object in the hashmap, for the specified
-    // NodeIdentity.
-    // If the node already exists in the hashmap of nodes, returns false and
-    // leaves the hashmap untouched.
-    private boolean AddConnectionUpdater(NodeIdentity nodeId) throws
-            MalformedURLException {
-        if (!connectionUpdaters_.containsKey(nodeId)) {
-            ClientFactory factory = CreateClientFactory(nodeId);
-            ConnectionUpdaterService cu = (ConnectionUpdaterService) factory.
-                    newInstance(ConnectionUpdaterService.class);
-            connectionUpdaters_.put(nodeId, cu);
-            return true;
-        }
-        return false;
-    }
-
-    // Overloads the previous function. Here, takes nodeId and the corresponding
-    // connection updater service for that node id.
-    private boolean AddConnectionUpdater(NodeIdentity nodeId,
-            ConnectionUpdaterService cu) throws
-            MalformedURLException {
-        if (!connectionUpdaters_.containsKey(nodeId)) {
-            connectionUpdaters_.put(nodeId, cu);
-            return true;
-        }
-        return false;
-    }
-
-    // For each newly connected node, creates a ConnectionUpdaterService and
-    // adds it to the hashmap of connection updater services.
-    private void AddNewlyConnectedNodes(HashSet<NodeIdentity> connectedNodesIds)
-            throws MalformedURLException {
-        boolean updated = false;
-        for (NodeIdentity nodeId : connectedNodesIds) {
-            if (AddConnectionUpdater(nodeId)) {
-                updated = true;
-            }
-        }
-        if (updated) {
-            for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                    : connectionUpdaters_.entrySet()) {
-                JoinNetworkImpl(cuEntry.getValue(), nodeServerNodeId_);
-            }
-        }
-    }
-
-    // Takes a hashset of connected nodes and checks whether the hashmap with 
-    // connectionUpdaters_ contains any nodes which are not there. If that is
-    // the case, it means that those nodes have disconnected in the meantime 
-    // and we remove them.
-    private void RemoveInexistentNodes(HashSet<NodeIdentity> connectedNodesIds) {
-        HashSet<NodeIdentity> removableNodeIds = new HashSet<>();
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            NodeIdentity nodeId = cuEntry.getKey();
-            if (!connectedNodesIds.contains(nodeId)) {
-                removableNodeIds.add(nodeId);
-            }
-        }
-        for (NodeIdentity nodeId : removableNodeIds) {
-            connectionUpdaters_.remove(nodeId);
-        }
-    }
-
-    private void ReportFailureToNetworkServers(NodeIdentity nodeId) throws
-            MalformedURLException {
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            // Tries to send a request to remove nodeId from the network. (The 
-            // server to which we send the request might be disconnected.)
-            try {
-                RemoveFromNetworkImpl(cuEntry.getValue(), nodeId);
-            } catch (Exception e) {
-                System.err.println(cuEntry.getKey().toString()
-                        + " has disconnected or failed.");
-            }
-        }
-        UpdateNetwork();
-    }
-
-    private void UpdateMasterNode() {
-        if (connectionUpdaters_.size() > 0) {
-            masterServer_ = connectionUpdaters_.entrySet().iterator().next().
-                    getValue();
-            masterServerNodeId_ = connectionUpdaters_.entrySet().iterator().
-                    next().getKey();
-        }
-    }
-
+    
     private ClientFactory CreateClientFactory(NodeIdentity nodeId) throws
             MalformedURLException {
         XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
@@ -311,17 +140,14 @@ public class RpcClient {
         return Min + (int) (Math.random() * ((Max - Min) + 1));
     }
 
-    private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
+    
     // The connection updater service that works as the server function of this
     // node.
     ConnectionUpdaterService nodeServer_;
     // The first server of the network to which this node was connected (when
     // it was instantiated.
-    ConnectionUpdaterService primaryServer_;
-    // The server of the master node.
-    ConnectionUpdaterService masterServer_;
-    private NodeIdentity nodeServerNodeId_, primaryServerNodeId_,
-            masterServerNodeId_;
+ 
+    private NodeIdentity nodeServerNodeId_;
     // ms for connection timeout and reply timeout.
     private int xmlrpcConnTimeout_, xmlrpcReplyTimeOut_;
 }

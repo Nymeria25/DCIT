@@ -23,35 +23,21 @@ public class NetworkNodeMain {
         System.out.print("Run on port: ");
         Scanner scanner = new Scanner(System.in);
         int serverPort = scanner.nextInt();
+        NodeIdentity serverId = new NodeIdentity(InetAddress.getLocalHost().
+                getHostAddress(), serverPort);
 
-        RpcServer rpcServer = new RpcServer(serverPort);
+        RpcServer rpcServer = new RpcServer(serverId);
         rpcServer.startServer();
 
         System.out.print("Connect to IP address and port: ");
         String primaryServerIpAddress = scanner.next();
         int primaryServerPort = scanner.nextInt();
 
-        NodeIdentity serverId = new NodeIdentity(InetAddress.getLocalHost().
-                getHostAddress(), serverPort);
+        
         NodeIdentity primaryServerId = new NodeIdentity(primaryServerIpAddress,
                 primaryServerPort);
         final RpcClient rpcClient = new RpcClient(serverId, primaryServerId);
 
-        Thread t1 = new Thread() {
-            public void run() {
-                try {
-                    while (true) {
-                        Thread.sleep(generateRandomNumber(500, 1000));
-                        rpcClient.UpdateNetwork();
-                    }
-                } catch (MalformedURLException ex) {
-                    System.err.println("Malformed URL.");
-                } catch (InterruptedException ex) {
-                    System.err.println("Interrupted thread.");
-                }
-            }
-        };
-        t1.start();
         
         Thread t2 = new Thread() {
             public void run() {

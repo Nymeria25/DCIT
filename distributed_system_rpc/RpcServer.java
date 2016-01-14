@@ -9,13 +9,13 @@ import org.apache.xmlrpc.webserver.WebServer;
 
 public class RpcServer {
  
-    RpcServer(int port) throws IOException, XmlRpcException {
+    RpcServer(NodeIdentity nodeId) throws IOException, XmlRpcException {
       
-        webServer_ = new WebServer(port);
+        webServer_ = new WebServer(nodeId.getValue());
         xmlRpcServer_ = webServer_.getXmlRpcServer();
         
         PropertyHandlerMapping phm = new PropertyHandlerMapping();
-        ConnectionUpdaterService connectionUpdater = new ConnectionUpdaterImpl();
+        ConnectionUpdaterService connectionUpdater = new ConnectionUpdaterImpl(nodeId);
         phm.setRequestProcessorFactoryFactory(new ConnectionUpdaterFactory(connectionUpdater));
         phm.addHandler(ConnectionUpdaterService.class.getName(), ConnectionUpdaterImpl.class);
         xmlRpcServer_.setHandlerMapping(phm);
