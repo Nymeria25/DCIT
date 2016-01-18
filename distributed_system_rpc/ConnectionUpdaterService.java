@@ -40,11 +40,6 @@ public interface ConnectionUpdaterService {
     public boolean doneRicartAgrawalaReq();
     public boolean getAccess(long lamport, String nodeIdp);
     
-    
-    
-    public boolean canIBeCoordinator();
-    public boolean electMaster(String nodeIdp);
-    
     public boolean setAsMaster();
     public boolean isMaster();
     

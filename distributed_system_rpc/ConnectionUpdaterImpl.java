@@ -52,21 +52,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         }
         return false;
     }
-    
-    // Just checks if the node with a higher id is alive.
-    public boolean canIBeCoordinator() {
-        network_.ElectMasterNode();
-        return false;
-    }
-    
-    @Override
-    public boolean electMaster(String nodeIdp) {
-        System.err.println("electMaster on service " + nodeIdp);
-        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        network_.setMaster(nodeId);
-        return true;
-    }
-    
+
     @Override
     public boolean setAsMaster() {
         iAmMaster_ = true;

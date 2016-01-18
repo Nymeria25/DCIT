@@ -90,9 +90,6 @@ public class Network {
     public void notifyReadWrite(String algorithm) throws MalformedURLException {
         failedNodes_.clear();
         ElectMasterNode();
-        
-        while (masterConnectionUpdater_ == null) {}
-        masterConnectionUpdater_.setAsMaster();
 
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -121,19 +118,12 @@ public class Network {
         }
     }
     
-    public boolean setMaster(NodeIdentity nodeId) {
-        System.out.println("SET MASTER " + nodeId.toString());
-        masterNodeId_ = nodeId;
-        masterConnectionUpdater_ = connectionUpdaters_.get(masterNodeId_);
-        return true;
-    }
     
     public String getSentenceFromMaster() {
         String sentence = "";
         try {
             sentence = masterConnectionUpdater_.getSentence();
         } catch (Exception e) {
-            tryedToElect_ = false;
             ElectMasterNode();
         }
         return sentence;
@@ -143,7 +133,6 @@ public class Network {
         try {
             masterConnectionUpdater_.writeSentence(sentence);
         } catch (Exception e) {
-            tryedToElect_ = false;
             ElectMasterNode();
         }
     }
@@ -191,40 +180,18 @@ public class Network {
         failedNodes_.clear();
     }
 
-    public void ElectMasterNode() {
-        // If already started an election phase, but did not get the COORDINATOR
-        // message yet, do not run it again.
-        
-        if (!tryedToElect_) {
-            tryedToElect_ = true;
-            masterNodeId_ = null;
-        boolean coordinator = true;
-        
-        System.err.println("Electing master node for " + nodeId_.toString());
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            if (cuEntry.getKey().compareTo(nodeId_) > 0) {
-                
-                System.err.println(cuEntry.getKey().toString());
-                try {
-                if (cuEntry.getValue().canIBeCoordinator() == false) {
-                    coordinator = false;
-                }
-                } catch (Exception e) {
-                    // nothing
-                }
-            }
+    
+       private void ElectMasterNode() {
+        if (connectionUpdaters_.size() > 0) {
+            Map.Entry<NodeIdentity, ConnectionUpdaterService> entry = 
+                    connectionUpdaters_.entrySet().iterator().next();
+            masterNodeId_ = entry.getKey();
+            masterConnectionUpdater_ = entry.getValue();
         }
-        
-        if (coordinator == true) {
-            System.err.println("Elected " + nodeId_.toString());
-            masterNodeId_ = nodeId_;
-            for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-                cuEntry.getValue().electMaster(nodeId_.toString());
-            }
-        } else {
-            while (masterNodeId_ == null) {}
+        try {
+            masterConnectionUpdater_.setAsMaster();
+        } catch (Exception e) {
+            // do nothing
         }
     }
         
@@ -234,11 +201,10 @@ public class Network {
             masterNodeId_ = entry.getKey();
             masterConnectionUpdater_ = entry.getValue();
         }*/
-    }
+    
 
     private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
     ConnectionUpdaterService masterConnectionUpdater_;
     private HashSet<NodeIdentity> failedNodes_;
     NodeIdentity nodeId_, masterNodeId_;
-    boolean tryedToElect_;
 }
