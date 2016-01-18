@@ -45,6 +45,7 @@ public class NetworkNodeMain {
                     while (true) {
                         Thread.sleep(generateRandomNumber(500, 1000));
                         rpcClient.ReadWrite();
+                        rpcClient.masterJob();
                     }
                 } catch (InterruptedException ex) {
                     System.err.println("Interrupted thread.");

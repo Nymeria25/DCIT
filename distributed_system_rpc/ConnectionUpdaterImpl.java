@@ -11,10 +11,13 @@ import java.util.logging.Logger;
 public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     public ConnectionUpdaterImpl(NodeIdentity nodeId) {
+        nodeId_ = nodeId;
         network_ = new Network(nodeId);
         networkUpdateQueue_ = new ArrayDeque<>();
         sentenceUpdateQueue_ = new ArrayDeque<>();
         networkUpdate_ = false;
+        raMutex_ = false;
+        iAmMaster_ = false;
         algorithm_ = "";
         sentence_ = "";
     }
@@ -50,6 +53,31 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return false;
     }
     
+    // Just checks if the node with a higher id is alive.
+    public boolean canIBeCoordinator() {
+        network_.ElectMasterNode();
+        return false;
+    }
+    
+    @Override
+    public boolean electMaster(String nodeIdp) {
+        System.err.println("electMaster on service " + nodeIdp);
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        network_.setMaster(nodeId);
+        return true;
+    }
+    
+    @Override
+    public boolean setAsMaster() {
+        iAmMaster_ = true;
+        return true;
+    }
+    
+    @Override
+    public boolean isMaster() {
+        return iAmMaster_;
+    }
+    
     @Override
     public boolean performSentenceUpdate(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
@@ -76,12 +104,26 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return false;
     }
     
+    @Override
     public boolean ricartAgrawalaReq(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        network_.getGrantedAccess(nodeId);
-        while (!network_.hasGrantedAccess()) {}
+        network_.getGrantedAccess(lamport_, nodeId);
+       // while (!network_.hasGrantedAccess()) {}
         
+        raMutex_ = true;
         return true;        
+    }
+    
+    public boolean doneRicartAgrawalaReq() {
+        raMutex_ = false;
+        return true;
+    }
+    
+    public boolean getAccess(long lamport, String nodeIdp) {
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        lamport_ = Math.max(lamport_, lamport) + 1;
+        while (raMutex_ && CompareExtendedLamport(lamport, nodeId) != -1) {}       
+        return true;
     }
 
     
@@ -180,6 +222,17 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     // ------------------ Private  -------------------
     
+    private int CompareExtendedLamport(long lamport, NodeIdentity nodeId) {
+        if (lamport_ == lamport) {
+            return nodeId_.compareTo(nodeId);
+        }
+        
+        if (lamport_ < lamport) return -1;
+        if (lamport_ > lamport) return 1;
+        
+        return 0;
+    }
+    
     private String algorithm_;
     
     // Hashset of node identities of the current nodes in the network.
@@ -193,7 +246,14 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     // Guards connectedNodes_.
     private Queue<NodeIdentity> networkUpdateQueue_, sentenceUpdateQueue_;
     
+    // Ricart Agrawala
+    private boolean raMutex_;
+    private long lamport_;
+    NodeIdentity nodeId_;
+    
     private String sentence_;
+    
+    private boolean iAmMaster_;
  
     // Used for testing only.
     private volatile int index = 1;

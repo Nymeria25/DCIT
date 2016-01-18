@@ -34,6 +34,21 @@ public interface ConnectionUpdaterService {
     // in the case when a node joins, signs off, or fails.
     public boolean doneSentenceUpdate(String nodeIdp);
     
+    
+    
+    public boolean ricartAgrawalaReq(String nodeIdp);
+    public boolean doneRicartAgrawalaReq();
+    public boolean getAccess(long lamport, String nodeIdp);
+    
+    
+    
+    public boolean canIBeCoordinator();
+    public boolean electMaster(String nodeIdp);
+    
+    public boolean setAsMaster();
+    public boolean isMaster();
+    
+    
     // ------------------ Operation Handlers -------------------
     
     // Returns a vector of host:port Strings, representing the node identities

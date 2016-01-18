@@ -26,6 +26,14 @@ public class RpcClient {
         
         JoinNetworkImpl(nodeServer_, primaryServerNodeId);
     }
+    
+    public void masterJob() throws InterruptedException {
+        if (nodeServer_.isMaster()) {
+            Thread.sleep(23000);
+            System.out.println("This is master!");
+            System.exit(0);
+        }
+    }
 
     public void ReadWrite() throws InterruptedException {
         try {
@@ -62,7 +70,9 @@ public class RpcClient {
                     nodeServer_.writeSentenceToMaster(clientSentence);
                     nodeServer_.doneSentenceUpdate(nodeServerNodeId_.toString());
                 } else {
-                    
+                    nodeServer_.ricartAgrawalaReq(nodeServerNodeId_.toString());
+                    nodeServer_.writeSentenceToMaster(clientSentence);
+                    nodeServer_.doneRicartAgrawalaReq();
                 }
                 
             } catch (Exception e) {
