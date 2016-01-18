@@ -182,6 +182,14 @@ public class Network {
 
     
        private void ElectMasterNode() {
+           System.err.println("Electing master node!");
+           
+           if (masterNodeId_ != null) {
+           failedNodes_.clear();
+           failedNodes_.add(masterNodeId_);
+           RemoveFailedNodesFromNetwork();
+           }
+           
         if (connectionUpdaters_.size() > 0) {
             Map.Entry<NodeIdentity, ConnectionUpdaterService> entry = 
                     connectionUpdaters_.entrySet().iterator().next();

@@ -64,7 +64,9 @@ public class RpcClient {
             Thread.sleep(generateRandomWaitingTime(500, 1000));
             try {
                 clientSentence = nodeServer_.getSentenceFromMaster();
-                clientSentence += dictionary.getRandomWord();
+                String word = dictionary.getRandomWord();
+                System.out.println(word);
+                clientSentence += word;
                 if (algorithm.equals("Centralized Mutual Exclusion")) {
                     nodeServer_.performSentenceUpdate(nodeServerNodeId_.toString());
                     nodeServer_.writeSentenceToMaster(clientSentence);
