@@ -2,7 +2,9 @@ package distributed_system_rpc;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Vector;
@@ -17,6 +19,8 @@ public class RpcClient {
     RpcClient(NodeIdentity nodeServerNodeId, NodeIdentity primaryServerNodeId)
             throws MalformedURLException {
         SetRPCWaitingTimes();
+        
+        appendedWords_ = new ArrayList<>();
 
         nodeServerNodeId_ = nodeServerNodeId;
         ClientFactory nodeServerFactory = CreateClientFactory(
@@ -40,11 +44,19 @@ public class RpcClient {
             String algorithm = nodeServer_.getReadWriteStatus();
             if (algorithm.length() > 0) {
                 String appendedWords = ClientReadWrite(algorithm);
-                System.out.println("Node sentence: ");
-                System.out.println(appendedWords);
 
                 System.out.println("Master's sentence: ");
-                System.out.println(nodeServer_.getSentenceFromMaster());
+                String masterString = nodeServer_.getSentenceFromMaster();
+                System.out.println(masterString);
+                
+                int numNonAppended = 0;
+                for (String word : appendedWords_) {
+                    if (!masterString.contains(word)) {
+                        numNonAppended++;
+                    }
+                }
+                
+                System.out.println("Number of words not appended: " + numNonAppended);
                 System.exit(0);
             }
         } catch (Exception e) {
@@ -64,9 +76,12 @@ public class RpcClient {
             Thread.sleep(generateRandomWaitingTime(500, 1000));
             try {
                 clientSentence = nodeServer_.getSentenceFromMaster();
+                
                 String word = dictionary.getRandomWord();
                 System.out.println(word);
+                appendedWords_.add(word);
                 clientSentence += word;
+                
                 if (algorithm.equals("Centralized Mutual Exclusion")) {
                     nodeServer_.performSentenceUpdate(nodeServerNodeId_.toString());
                     nodeServer_.writeSentenceToMaster(clientSentence);
@@ -162,4 +177,6 @@ public class RpcClient {
     private NodeIdentity nodeServerNodeId_;
     // ms for connection timeout and reply timeout.
     private int xmlrpcConnTimeout_, xmlrpcReplyTimeOut_;
+
+    List<String> appendedWords_;
 }

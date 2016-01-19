@@ -183,6 +183,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         network_.signOff(nodeId);
         return true;
     }
+    
     @Override
     public boolean removeNodeFromNetwork(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);

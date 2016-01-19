@@ -182,7 +182,7 @@ public class Network {
 
     
        private void ElectMasterNode() {
-           System.err.println("Electing master node!");
+           System.out.println("Electing master node!");
            
            if (masterNodeId_ != null) {
            failedNodes_.clear();
