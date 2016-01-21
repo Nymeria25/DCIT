@@ -58,23 +58,26 @@ public interface ConnectionUpdaterService {
     public boolean signOff(String nodeIdp);
     public boolean removeNodeFromNetwork(String nodeIdp);
     
-    //
     public boolean readWriteReady(String algorithm);
+    public boolean readWrite(String algorithm);
+    
+    //
+   // public boolean readWriteReady(String algorithm);
     public boolean startReadWrite(String algorithm);
     
     // Returns the name of the algorithm to be performed for read/write.
     // "Centralized Mutual Exclusion" or "Ricart Agrawala".
     // If the return String is empty, it means the read/write operation
     // should not start yet.
-    public String getReadWriteStatus();
+   public String getReadWriteStatus();
     
     //
     public String getSentence();
-    public String getSentenceFromMaster();
+   // public String getSentenceFromMaster();
     
     //
     public boolean writeSentence(String sentence);
-    public boolean writeSentenceToMaster(String sentence);
+  //  public boolean writeSentenceToMaster(String sentence);
     
     // ------------------ Testing -------------------
     

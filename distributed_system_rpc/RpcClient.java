@@ -32,72 +32,27 @@ public class RpcClient {
     }
     
     public void masterJob() throws InterruptedException {
+        try {
         if (nodeServer_.isMaster()) {
-            Thread.sleep(23000);
+            Thread.sleep(30000);
             System.out.println("This is master!");
             System.exit(0);
+        } }
+        catch (Exception e) {
+            // nothing
         }
     }
-
-    public void ReadWrite() throws InterruptedException {
-        try {
-            String algorithm = nodeServer_.getReadWriteStatus();
-            if (algorithm.length() > 0) {
-                String appendedWords = ClientReadWrite(algorithm);
-
-                System.out.println("Master's sentence: ");
-                String masterString = nodeServer_.getSentenceFromMaster();
-                System.out.println(masterString);
-                
-                int numNonAppended = 0;
-                for (String word : appendedWords_) {
-                    if (!masterString.contains(word)) {
-                        numNonAppended++;
-                    }
-                }
-                
-                System.out.println("Number of words not appended: " + numNonAppended);
-                System.exit(0);
-            }
-        } catch (Exception e) {
-            System.err.println("The node server is dead.");
-        }
-
-    }
-
-    private String ClientReadWrite(String algorithm) throws InterruptedException {
-        Dictionary dictionary = new Dictionary();
-
-        int totalTime = 20000; // ms
-        long startTime = System.currentTimeMillis();
-        String clientSentence = "";
-
-        while (System.currentTimeMillis() - startTime < totalTime) {
-            Thread.sleep(generateRandomWaitingTime(500, 1000));
-            try {
-                clientSentence = nodeServer_.getSentenceFromMaster();
-                
-                String word = dictionary.getRandomWord();
-                System.out.println(word);
-                appendedWords_.add(word);
-                clientSentence += word;
-                
-                if (algorithm.equals("Centralized Mutual Exclusion")) {
-                    nodeServer_.performSentenceUpdate(nodeServerNodeId_.toString());
-                    nodeServer_.writeSentenceToMaster(clientSentence);
-                    nodeServer_.doneSentenceUpdate(nodeServerNodeId_.toString());
-                } else {
-                    nodeServer_.ricartAgrawalaReq(nodeServerNodeId_.toString());
-                    nodeServer_.writeSentenceToMaster(clientSentence);
-                    nodeServer_.doneRicartAgrawalaReq();
-                }
-                
-            } catch (Exception e) {
-
-            }
-        }
-        return clientSentence;
-    }
+       
+   public void StartReadWrite() {
+       try {
+           String algorithm = nodeServer_.getReadWriteStatus();
+           if (algorithm.length() > 0) {
+               nodeServer_.readWrite(algorithm);
+           }
+       } catch (Exception e) {
+           // do nothing
+       } 
+   }
 
  
     // Runs the client console and reads/performs manual commands from keyboard.
@@ -114,7 +69,7 @@ public class RpcClient {
             } else if ("$rwc".equals(command)) {
                nodeServer_.readWriteReady("Centralized Mutual Exclusion");
             } else if ("$rwra".equals(command)) {
-               nodeServer_.readWriteReady("Centralized Mutual Exclusion");
+               nodeServer_.readWriteReady("Ricart Agrawala");
             } else if ("$print".equals(command)) {
                 nodeServer_.print();
             } else if ("$help".equals(command)) {
@@ -163,10 +118,7 @@ public class RpcClient {
         return new ClientFactory(rpcClient);
     }
 
-    private static int generateRandomWaitingTime(int Min, int Max) {
-        return Min + (int) (Math.random() * ((Max - Min) + 1));
-    }
-
+   
     
     // The connection updater service that works as the server function of this
     // node.

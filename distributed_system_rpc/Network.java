@@ -86,10 +86,50 @@ public class Network {
     public void removeNode(NodeIdentity nodeId) {
         connectionUpdaters_.remove(nodeId);
     }
-
-    public void notifyReadWrite(String algorithm) throws MalformedURLException {
+    
+    // Centralized Mutual Exclusion delegators
+    public void performSentenceUpdate(NodeIdentity nodeId) {
+        try {
+            masterConnectionUpdater_.performSentenceUpdate(nodeId.toString());
+        } catch (Exception e) {
+            System.out.println("Master is no longer in the network.");
+            ElectMasterNode();
+        }
+    }
+    
+    public void doneSentenceUpdate(NodeIdentity nodeId) {
+         try {
+            masterConnectionUpdater_.doneSentenceUpdate(nodeId.toString());
+        } catch (Exception e) {
+            System.out.println("Master is no longer in the network.");
+            ElectMasterNode();
+        }
+    }
+    
+    // Ricart Agrawala delegators
+    public void ricartAgrawalaReq(NodeIdentity nodeId) {
+        try {
+            masterConnectionUpdater_.ricartAgrawalaReq(nodeId.toString());
+        } catch (Exception e) {
+            System.out.println("Master is no longer in the network.");
+            ElectMasterNode();
+        }
+    }
+    
+    public void doneRicartAgrawalaReq() {
+         try {
+            masterConnectionUpdater_.doneRicartAgrawalaReq();
+        } catch (Exception e) {
+            System.out.println("Master is no longer in the network.");
+            ElectMasterNode();
+        }
+    }
+    // -------
+    
+    public void notifyReadWrite(String algorithm) {
         failedNodes_.clear();
         ElectMasterNode();
+        System.out.println("Elected master node: " + masterNodeId_.toString());
 
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -97,14 +137,18 @@ public class Network {
             // disconnected.)
             if (!cuEntry.getKey().equals(nodeId_) && !cuEntry.getKey().equals(masterNodeId_)) {
                 try {
+                    System.out.println("Notify to start read/write for: " +
+                            cuEntry.getKey().toString());
                     cuEntry.getValue().startReadWrite(algorithm);
                 } catch (Exception e) {
+                    System.err.println("exception");
                     failedNodes_.add(cuEntry.getKey());
                 }
             }
         }
         
-        connectionUpdaters_.get(nodeId_).startReadWrite(algorithm);
+        System.out.println("Notify myself! " + nodeId_.toString());
+        connectionUpdaters_.get(nodeId_).readWrite(algorithm);
 
         RemoveFailedNodesFromNetwork();
     }
@@ -112,10 +156,18 @@ public class Network {
     
     // Ricart Agrawala
     public void getGrantedAccess(long lamport, NodeIdentity nodeId) {
+        failedNodes_.clear();
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
+            if (cuEntry.getKey().compareTo(nodeId_) != 0) {
+            try {
             cuEntry.getValue().getAccess(lamport, nodeId.toString());
+            } catch (Exception e) {
+                    failedNodes_.add(cuEntry.getKey());
+                }
         }
+        }
+        RemoveFailedNodesFromNetwork();
     }
     
     
@@ -124,6 +176,7 @@ public class Network {
         try {
             sentence = masterConnectionUpdater_.getSentence();
         } catch (Exception e) {
+            System.err.println("Failed to get sentence.");
             ElectMasterNode();
         }
         return sentence;
@@ -131,6 +184,7 @@ public class Network {
 
     public void writeSentenceToMaster(String sentence) {
         try {
+            System.out.println("Network writes sentence to master: " + masterNodeId_.toString());
             masterConnectionUpdater_.writeSentence(sentence);
         } catch (Exception e) {
             ElectMasterNode();
@@ -181,7 +235,7 @@ public class Network {
     }
 
     
-       private void ElectMasterNode() {
+       public void ElectMasterNode() {
            System.out.println("Electing master node!");
            
            if (masterNodeId_ != null) {

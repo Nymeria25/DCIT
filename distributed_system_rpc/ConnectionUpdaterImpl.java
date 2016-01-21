@@ -2,9 +2,12 @@ package distributed_system_rpc;
 
 import java.net.MalformedURLException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Queue;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -13,8 +16,9 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public ConnectionUpdaterImpl(NodeIdentity nodeId) {
         nodeId_ = nodeId;
         network_ = new Network(nodeId);
-        networkUpdateQueue_ = new ArrayDeque<>();
-        sentenceUpdateQueue_ = new ArrayDeque<>();
+        networkUpdateQueue_ = new ConcurrentLinkedQueue<>();
+        sentenceUpdateQueue_ = new ConcurrentLinkedQueue<>();
+        sentenceUpdate_ = false;
         networkUpdate_ = false;
         raMutex_ = false;
         iAmMaster_ = false;
@@ -64,31 +68,48 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return iAmMaster_;
     }
     
+    private void PrintQueue() {
+        for (NodeIdentity nodeId : sentenceUpdateQueue_) {
+            System.out.println(nodeId.toString());
+        }
+    }
+ 
     @Override
     public boolean performSentenceUpdate(String nodeIdp) {
+        System.out.println(nodeIdp + " wants access!");
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         sentenceUpdateQueue_.add(nodeId);
         
+        
+        PrintQueue();
+        
         // Block the client while other node is performing updates.
-        while(!(sentenceUpdate_ == false && sentenceUpdateQueue_.peek() == nodeId)) {}
+        while(!(sentenceUpdate_ == false && sentenceUpdateQueue_.peek() == nodeId)) {
+            System.out.println("in while with: " + nodeIdp);
+        }
         
         // The critical zone of connected nodes is free.
         // That is, nodeId is on top of the queue and no one is updating the
         // network at this time (sentenceUpdate_ = false).
+        System.out.println(nodeIdp + " got access to update.");
         sentenceUpdate_ = true;        
         return true;
     }
 
+
     @Override
     public boolean doneSentenceUpdate(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        while (!nodeId.equals(sentenceUpdateQueue_.peek())) {}
         if (nodeId.equals(sentenceUpdateQueue_.peek())) {
             sentenceUpdate_ = false;
             sentenceUpdateQueue_.poll();
+            System.out.println(nodeIdp + " released access to update.");
             return true;
         }
         return false;
     }
+    
     
     @Override
     public boolean ricartAgrawalaReq(String nodeIdp) {
@@ -100,6 +121,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;        
     }
     
+    @Override
     public boolean doneRicartAgrawalaReq() {
         raMutex_ = false;
         return true;
@@ -108,54 +130,131 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean getAccess(long lamport, String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         lamport_ = Math.max(lamport_, lamport) + 1;
-        while (raMutex_ && CompareExtendedLamport(lamport, nodeId) != -1) {}       
+        System.err.println("My lamport " + lamport_);
+        System.err.println("Their lamport " + lamport);
+        
+        System.err.println("My node id " + nodeId_.toString());
+        System.err.println("Their node id " + nodeIdp);
+        System.err.println("Mutex state: " + raMutex_);
+        while (! (raMutex_ == false && CompareExtendedLamport(lamport,
+                nodeId) == -1)) {
+            System.err.println("in while");
+        }       
         return true;
     }
+    
+    // READ/WRITE impl
+    @Override
+    public boolean readWrite(String algorithm) {
+        algorithm_ = algorithm;
+            if (algorithm_.length() > 0 && !iAmMaster_) {
+                List<String> appendedWords = ReadWriteImpl();
+
+                System.out.println("Master's sentence: ");
+                String masterString = network_.getSentenceFromMaster();
+                System.out.println(masterString);
+                
+                int numNonAppended = 0;
+                for (String word : appendedWords) {
+                    if (!masterString.contains(word)) {
+                        numNonAppended++;
+                    }
+                }
+                
+                System.out.println("Number of words not appended: " + numNonAppended);
+                System.exit(0);
+            }
+        return false;
+    }
+    
+    private int generateRandomWaitingTime(int Min, int Max) {
+        return Min + (int) (Math.random() * ((Max - Min) + 1));
+    }
+
+
+    private List<String> ReadWriteImpl() {
+        Dictionary dictionary = new Dictionary();
+
+        int totalTime = 20000; // ms
+        long startTime = System.currentTimeMillis();
+        String clientSentence = "";
+
+        List<String> appendedWords = new ArrayList<String>();
+        while (System.currentTimeMillis() - startTime < totalTime) {
+            try {
+                Thread.sleep(generateRandomWaitingTime(100, 500));
+                String word = dictionary.getRandomWord();
+                System.out.println(word);
+                appendedWords.add(word);
+                
+                if (algorithm_.equals("Centralized Mutual Exclusion")) {
+                    network_.performSentenceUpdate(nodeId_);
+                    clientSentence = network_.getSentenceFromMaster();
+                    clientSentence += word;
+                    network_.writeSentenceToMaster(clientSentence);
+                    network_.doneSentenceUpdate(nodeId_);
+                } else {
+                    network_.ricartAgrawalaReq(nodeId_);
+                    network_.writeSentenceToMaster(clientSentence);
+                    network_.doneRicartAgrawalaReq();
+                }
+                
+            } catch (Exception e) {
+
+            }
+        }
+      return appendedWords;
+    }
+    
+    // --------------
 
     
     @Override
     public boolean readWriteReady(String algorithm) {
-        try {
             algorithm_ = algorithm;
             network_.notifyReadWrite(algorithm_);
-        } catch (MalformedURLException ex) {
-            // do the do the konga
-        }
+   
         return true;
     }
-       
+   
+    
     @Override
     public boolean startReadWrite(String algorithm) {
         algorithm_ = algorithm;
+        network_.ElectMasterNode();
         return true;
     }
+    
     
     @Override
     public String getReadWriteStatus() {
         return algorithm_;
     }
     
+    
     @Override
     public String getSentence() {
         return sentence_;
     }
-    
+    /*
     @Override
     public String getSentenceFromMaster() {
         return network_.getSentenceFromMaster();
     }
+    */
     
     @Override
     public boolean writeSentence(String sentence) {
+        System.out.println("Writing: " + sentence);
         sentence_ = sentence;
         return true;
     }
-    
+    /*
     @Override
     public boolean writeSentenceToMaster(String sentence) {
         network_.writeSentenceToMaster(sentence);
         return true;
-    }
+    } */
    
     @Override
     public boolean joinNetwork(String nodeIdp) {
@@ -231,7 +330,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     
     // Queue of the nodes who wait to perform an update to the network nodes.
     // Guards connectedNodes_.
-    private Queue<NodeIdentity> networkUpdateQueue_, sentenceUpdateQueue_;
+    private ConcurrentLinkedQueue<NodeIdentity> networkUpdateQueue_, sentenceUpdateQueue_;
     
     // Ricart Agrawala
     private boolean raMutex_;

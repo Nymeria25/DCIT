@@ -44,7 +44,7 @@ public class NetworkNodeMain {
                 try {
                     while (true) {
                         Thread.sleep(generateRandomNumber(500, 1000));
-                        rpcClient.ReadWrite();
+                        rpcClient.StartReadWrite();
                         rpcClient.masterJob();
                     }
                 } catch (InterruptedException ex) {
