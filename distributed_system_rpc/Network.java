@@ -92,8 +92,8 @@ public class Network {
         try {
             masterConnectionUpdater_.performSentenceUpdate(nodeId.toString());
         } catch (Exception e) {
-            System.out.println("Master is no longer in the network.");
-            ElectMasterNode();
+            System.out.println("freaky");
+          //  ElectMasterNode();
         }
     }
     
@@ -126,12 +126,12 @@ public class Network {
     }
     // -------
     
-    public void notifyReadWrite(String algorithm) {
+    public void notifyReadWrite(final String algorithm) {
         failedNodes_.clear();
         ElectMasterNode();
         System.out.println("Elected master node: " + masterNodeId_.toString());
 
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+        for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             // Tries to send a notification to this node. (The node might be
             // disconnected.)
@@ -139,7 +139,14 @@ public class Network {
                 try {
                     System.out.println("Notify to start read/write for: " +
                             cuEntry.getKey().toString());
-                    cuEntry.getValue().startReadWrite(algorithm);
+                    
+                    Thread thread = new Thread() {
+                        public void run() {
+                            cuEntry.getValue().readWrite(algorithm);
+                        }
+                    };
+                    thread.start();
+                    
                 } catch (Exception e) {
                     System.err.println("exception");
                     failedNodes_.add(cuEntry.getKey());
@@ -177,7 +184,7 @@ public class Network {
             sentence = masterConnectionUpdater_.getSentence();
         } catch (Exception e) {
             System.err.println("Failed to get sentence.");
-            ElectMasterNode();
+           // ElectMasterNode();
         }
         return sentence;
     }

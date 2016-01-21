@@ -18,7 +18,7 @@ public class RpcClient {
 
     RpcClient(NodeIdentity nodeServerNodeId, NodeIdentity primaryServerNodeId)
             throws MalformedURLException {
-        SetRPCWaitingTimes();
+       // SetRPCWaitingTimes();
         
         appendedWords_ = new ArrayList<>();
 

@@ -79,19 +79,26 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         System.out.println(nodeIdp + " wants access!");
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         sentenceUpdateQueue_.add(nodeId);
+        System.out.println(sentenceUpdateQueue_.size());
         
         
         PrintQueue();
         
         // Block the client while other node is performing updates.
         while(!(sentenceUpdate_ == false && sentenceUpdateQueue_.peek() == nodeId)) {
-            System.out.println("in while with: " + nodeIdp);
+            try {
+                Thread.sleep(generateRandomWaitingTime(500, 800));
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ConnectionUpdaterImpl.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            System.out.println(sentenceUpdate_ + " " + nodeId.toString());
         }
         
         // The critical zone of connected nodes is free.
         // That is, nodeId is on top of the queue and no one is updating the
         // network at this time (sentenceUpdate_ = false).
         System.out.println(nodeIdp + " got access to update.");
+        System.out.println(sentenceUpdateQueue_.size());
         sentenceUpdate_ = true;        
         return true;
     }
@@ -100,14 +107,14 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     @Override
     public boolean doneSentenceUpdate(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        while (!nodeId.equals(sentenceUpdateQueue_.peek())) {}
-        if (nodeId.equals(sentenceUpdateQueue_.peek())) {
+        while (sentenceUpdateQueue_.peek()!= null &&
+                !nodeId.equals(sentenceUpdateQueue_.peek())) {}
             sentenceUpdate_ = false;
             sentenceUpdateQueue_.poll();
             System.out.println(nodeIdp + " released access to update.");
-            return true;
-        }
-        return false;
+           // return true;
+        
+        return true;
     }
     
     
@@ -182,7 +189,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         List<String> appendedWords = new ArrayList<String>();
         while (System.currentTimeMillis() - startTime < totalTime) {
             try {
-                Thread.sleep(generateRandomWaitingTime(100, 500));
+                Thread.sleep(generateRandomWaitingTime(100, 200));
                 String word = dictionary.getRandomWord();
                 System.out.println(word);
                 appendedWords.add(word);
@@ -194,6 +201,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneSentenceUpdate(nodeId_);
                 } else {
+                    System.out.println("deep shit");
                     network_.ricartAgrawalaReq(nodeId_);
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneRicartAgrawalaReq();
@@ -247,6 +255,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean writeSentence(String sentence) {
         System.out.println("Writing: " + sentence);
         sentence_ = sentence;
+        //System.out.println(nodeIdp + " released access to update.");
         return true;
     }
     /*

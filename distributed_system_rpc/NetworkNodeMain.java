@@ -43,8 +43,8 @@ public class NetworkNodeMain {
             public void run() {
                 try {
                     while (true) {
-                        Thread.sleep(generateRandomNumber(500, 1000));
-                        rpcClient.StartReadWrite();
+                        Thread.sleep(generateRandomNumber(1000, 2000));
+                      //  rpcClient.StartReadWrite();
                         rpcClient.masterJob();
                     }
                 } catch (InterruptedException ex) {
