@@ -55,7 +55,7 @@ public class Network {
         }
         RemoveFailedNodesFromNetwork();
     }
-    
+
     public int getSize() {
         return connectionUpdaters_.size();
     }
@@ -86,7 +86,7 @@ public class Network {
     public void removeNode(NodeIdentity nodeId) {
         connectionUpdaters_.remove(nodeId);
     }
-    
+
     // Centralized Mutual Exclusion delegators
     public void performSentenceUpdate(NodeIdentity nodeId) {
         try {
@@ -96,40 +96,40 @@ public class Network {
             ElectMasterNode();
         }
     }
-    
+
     public void doneSentenceUpdate(NodeIdentity nodeId) {
-         try {
+        try {
             masterConnectionUpdater_.doneSentenceUpdate(nodeId.toString());
         } catch (Exception e) {
             System.out.println("Master is no longer in the network.");
             ElectMasterNode();
         }
     }
-    
+
     // Ricart Agrawala delegators
     public void ricartAgrawalaReq(NodeIdentity nodeId) {
         try {
             masterConnectionUpdater_.ricartAgrawalaReq(nodeId.toString());
         } catch (Exception e) {
             System.out.println("Master is no longer in the network.");
-        //    ElectMasterNode();
+            //    ElectMasterNode();
         }
     }
-    
+
     public void doneRicartAgrawalaReq() {
-         try {
+        try {
             masterConnectionUpdater_.doneRicartAgrawalaReq();
         } catch (Exception e) {
             System.out.println("Master is no longer in the network.");
-         //   ElectMasterNode();
+            //   ElectMasterNode();
         }
     }
     // -------
-    
+
     public void notifyReadWrite(final String algorithm) {
         failedNodes_.clear();
-       // ElectMasterNode();
-       // System.out.println("Elected master node: " + masterNodeId_.toString());
+        ElectMasterNode();
+        // System.out.println("Elected master node: " + masterNodeId_.toString());
 
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -137,59 +137,57 @@ public class Network {
             // disconnected.)
             if (!cuEntry.getKey().equals(nodeId_)) {
                 try {
-                    System.out.println("Notify to start read/write for: " +
-                            cuEntry.getKey().toString());
-                    
+                    System.out.println("Notify to start read/write for: "
+                            + cuEntry.getKey().toString());
+
                     Thread thread = new Thread() {
                         public void run() {
                             cuEntry.getValue().readWrite(algorithm);
                         }
                     };
                     thread.start();
-                    
+
                 } catch (Exception e) {
                     System.err.println("exception");
                     failedNodes_.add(cuEntry.getKey());
                 }
             }
         }
-        
+
         System.out.println("Notify myself! " + nodeId_.toString());
         connectionUpdaters_.get(nodeId_).readWrite(algorithm);
 
         RemoveFailedNodesFromNetwork();
     }
 
-    
     // Ricart Agrawala
     public void getGrantedAccess(final long lamport, final NodeIdentity nodeId) {
         failedNodes_.clear();
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             if (cuEntry.getKey().compareTo(nodeId_) != 0) {
-            try {
-                Thread thread = new Thread() {
+                try {
+                    Thread thread = new Thread() {
                         public void run() {
-                cuEntry.getValue().getAccess(lamport, nodeId.toString());
-                }
+                            cuEntry.getValue().getAccess(lamport, nodeId.toString());
+                        }
                     };
                     thread.start();
-            } catch (Exception e) {
+                } catch (Exception e) {
                     failedNodes_.add(cuEntry.getKey());
                 }
-        }
+            }
         }
         RemoveFailedNodesFromNetwork();
     }
-    
-    
+
     public String getSentenceFromMaster() {
         String sentence = "";
         try {
-            sentence = masterConnectionUpdater_.getSentence();
+            sentence = masterConnectionUpdater_.getMasterSentence();
         } catch (Exception e) {
             System.out.println("Failed to get sentence.");
-           // ElectMasterNode();
+            // ElectMasterNode();
         }
         return sentence;
     }
@@ -197,9 +195,9 @@ public class Network {
     public void writeSentenceToMaster(String sentence) {
         try {
             System.out.println("Network writes sentence to master: " + masterNodeId_.toString());
-            masterConnectionUpdater_.writeSentence(sentence);
+            masterConnectionUpdater_.writeMasterSentence(sentence);
         } catch (Exception e) {
-          masterConnectionUpdater_.writeSentence(sentence);
+            masterConnectionUpdater_.writeMasterSentence(sentence);
         }
     }
 
@@ -245,38 +243,63 @@ public class Network {
         }
         failedNodes_.clear();
     }
-
     
-       public void ElectMasterNode() {
-           System.out.println("Electing master node!");
-           
-           if (masterNodeId_ != null) {
-           failedNodes_.clear();
-           failedNodes_.add(masterNodeId_);
-           RemoveFailedNodesFromNetwork();
-           }
-           
-        if (connectionUpdaters_.size() > 0) {
-            Map.Entry<NodeIdentity, ConnectionUpdaterService> entry = 
-                    connectionUpdaters_.entrySet().iterator().next();
-            masterNodeId_ = entry.getKey();
-            masterConnectionUpdater_ = entry.getValue();
+    public void setMaster(NodeIdentity nodeId) {
+        masterNodeId_ = nodeId;
+        masterConnectionUpdater_ = connectionUpdaters_.get(masterNodeId_);
+    }
+    
+    public void ElectMasterNode() {
+        System.out.println("Electing master node!");
+        failedNodes_.clear();
+
+        boolean foundPotentialMaster = false;
+
+        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                : connectionUpdaters_.entrySet()) {
+            try {
+                final ConnectionUpdaterService cu = cuEntry.getValue();
+                if (cuEntry.getKey().compareTo(nodeId_) > 0 && cu.isAlive()) {
+                    foundPotentialMaster = true;
+                    Thread thread = new Thread() {
+                        public void run() {
+                            cu.electMaster();
+                        }
+                    };
+                    thread.start();
+                }
+            } catch (Exception e) {
+                failedNodes_.add(cuEntry.getKey());
+            }
         }
-        try {
-            masterConnectionUpdater_.setAsMaster();
-        } catch (Exception e) {
-            // do nothing
+        RemoveFailedNodesFromNetwork();
+        if (foundPotentialMaster) {
+            System.out.println("Found potential master.");
+            masterNodeId_ = null;
+            while (masterNodeId_ == null) {
+                try {
+                    System.out.println("Waiting for a response from master.");
+                    Thread.sleep(generateRandomWaitingTime(100, 200));
+                } catch (InterruptedException ex) {
+                    // nothing
+                }
+            }
+        } else {
+             for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                : connectionUpdaters_.entrySet()) {
+            try {
+                cuEntry.getValue().setMaster(nodeId_.toString());
+            } catch (Exception e) {
+               // nothing
+            }
+        }
         }
     }
-        
-      /*  if (connectionUpdaters_.size() > 0) {
-            Map.Entry<NodeIdentity, ConnectionUpdaterService> entry = 
-                    connectionUpdaters_.entrySet().iterator().next();
-            masterNodeId_ = entry.getKey();
-            masterConnectionUpdater_ = entry.getValue();
-        }*/
-    
 
+    private int generateRandomWaitingTime(int Min, int Max) {
+        return Min + (int) (Math.random() * ((Max - Min) + 1));
+    }
+    
     private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
     ConnectionUpdaterService masterConnectionUpdater_;
     private HashSet<NodeIdentity> failedNodes_;

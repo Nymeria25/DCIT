@@ -16,22 +16,26 @@ public interface ConnectionUpdaterService {
     // connectionUpdater.removeFromNetwork(nodeId);
     // connectionUpdater.doneNetworkUpdate();
     
-    // Called BEFORE performing an update to the network nodes. That is,
-    // in the case when a node joins, signs off, or fails.
+    // Called BEFORE performing an update to the network nodes.
     // nodeIdp is the node identity of the node who want to perform a network
-    // update. nodeIdp should be host:port.
+    // update. nodeIdp is the String identity of the node who calls. 
+    // Should be host:port.
     public boolean performNetworkUpdate(String nodeIdp);
     
-    // Called AFTER the client finished the update of the network. Also,
-    // in the case when a node joins, signs off, or fails.
+    // Called AFTER the client finished the update of the network. 
+    // nodeIdp is the String identity of the node who calls. 
+    // Should be host:port.
     public boolean doneNetworkUpdate(String nodeIdp);
     
     
-    
+    // Called BEFORE updating the master sentence. Acquires lock over sentence.
+    // nodeIdp is the String identity of the node who calls. 
+    // Should be host:port.
     public boolean performSentenceUpdate(String nodeIdp);
     
-    // Called AFTER the client finished the update of the network. Also,
-    // in the case when a node joins, signs off, or fails.
+    // Called AFTER the client finished the update of the sentence. Releases
+    // lock. nodeIdp is the String identity of the node who calls. 
+    // Should be host:port.
     public boolean doneSentenceUpdate(String nodeIdp);
     
     
@@ -40,7 +44,8 @@ public interface ConnectionUpdaterService {
     public boolean doneRicartAgrawalaReq();
     public boolean getAccess(long lamport, String nodeIdp);
     
-    public boolean setAsMaster();
+    public boolean setMaster(String nodeIdp);
+    public boolean electMaster();
     public boolean isMaster();
     
     
@@ -50,20 +55,31 @@ public interface ConnectionUpdaterService {
     // of the nodes currently in the network.
     public Vector<String> getConnectedNodes();
     
-    // DOES STUFF
+    // Called by a new node who wants to join the network.
+    // Broadcasts the operation to the other existing nodes in the network, to
+    // form a full mesh.
     public boolean joinNetwork(String nodeIdp);
+    
+    // Adds nodeIdp to the current node's list of connected nodes.
     public boolean addNodeToNetwork(String nodeIdp);
     
-    // MORE STUFF
+    // Called by a node who wants to sign off from the network.
+    // Broadcasts the operation to the other existing nodes in the network, to
+    // update their lists of nodes.
     public boolean signOff(String nodeIdp);
+    
+    // Removes nodeIdp from the list of connected nodes of the current node.
     public boolean removeNodeFromNetwork(String nodeIdp);
     
+    // Called by the node who starts the read/write process. Broadcasts the 
+    // operation to the other existing nodes in the network, running the
+    // readWrite() method in separate threads, for all the nodes.
     public boolean readWriteReady(String algorithm);
+    
+    // The actual read/write process.
     public boolean readWrite(String algorithm);
     
-    //
-   // public boolean readWriteReady(String algorithm);
-    public boolean startReadWrite(String algorithm);
+
     
     // Returns the name of the algorithm to be performed for read/write.
     // "Centralized Mutual Exclusion" or "Ricart Agrawala".
@@ -72,20 +88,17 @@ public interface ConnectionUpdaterService {
    public String getReadWriteStatus();
     
     //
-    public String getSentence();
+    public String getMasterSentence();
    // public String getSentenceFromMaster();
     
     //
-    public boolean writeSentence(String sentence);
+    public boolean writeMasterSentence(String sentence);
   //  public boolean writeSentenceToMaster(String sentence);
     
-    // ------------------ Testing -------------------
+    // ------------------ Helpers -------------------
     
-    // Echoes the message sent in the request.
-    // nodeIdp is the node identity of the sender and should be in the form of
-    // host:port.
-    // msg is the message sent.
-   // public int echo(String nodeIdp, String msg);
+    // Returns true. Used to ping nodes, to check if they are alive.
+    public boolean isAlive();
      
     // Prints to output stream the list of nodes currently connected to the
     // network.
