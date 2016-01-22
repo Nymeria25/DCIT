@@ -153,6 +153,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     // READ/WRITE impl
     @Override
     public boolean readWrite(String algorithm) {
+        network_.ElectMasterNode();
+        
         algorithm_ = algorithm;
             if (algorithm_.length() > 0 && !iAmMaster_) {
                 List<String> appendedWords = ReadWriteImpl();
@@ -201,8 +203,10 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneSentenceUpdate(nodeId_);
                 } else {
-                    System.out.println("deep shit");
                     network_.ricartAgrawalaReq(nodeId_);
+                    network_.performSentenceUpdate(nodeId_);
+                    clientSentence = network_.getSentenceFromMaster();
+                    clientSentence += word;
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneRicartAgrawalaReq();
                 }

@@ -92,8 +92,8 @@ public class Network {
         try {
             masterConnectionUpdater_.performSentenceUpdate(nodeId.toString());
         } catch (Exception e) {
-            System.out.println("freaky");
-          //  ElectMasterNode();
+            System.out.println("Master is no longer in the network.");
+            ElectMasterNode();
         }
     }
     
@@ -112,7 +112,7 @@ public class Network {
             masterConnectionUpdater_.ricartAgrawalaReq(nodeId.toString());
         } catch (Exception e) {
             System.out.println("Master is no longer in the network.");
-            ElectMasterNode();
+        //    ElectMasterNode();
         }
     }
     
@@ -121,21 +121,21 @@ public class Network {
             masterConnectionUpdater_.doneRicartAgrawalaReq();
         } catch (Exception e) {
             System.out.println("Master is no longer in the network.");
-            ElectMasterNode();
+         //   ElectMasterNode();
         }
     }
     // -------
     
     public void notifyReadWrite(final String algorithm) {
         failedNodes_.clear();
-        ElectMasterNode();
-        System.out.println("Elected master node: " + masterNodeId_.toString());
+       // ElectMasterNode();
+       // System.out.println("Elected master node: " + masterNodeId_.toString());
 
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             // Tries to send a notification to this node. (The node might be
             // disconnected.)
-            if (!cuEntry.getKey().equals(nodeId_) && !cuEntry.getKey().equals(masterNodeId_)) {
+            if (!cuEntry.getKey().equals(nodeId_)) {
                 try {
                     System.out.println("Notify to start read/write for: " +
                             cuEntry.getKey().toString());
@@ -162,13 +162,18 @@ public class Network {
 
     
     // Ricart Agrawala
-    public void getGrantedAccess(long lamport, NodeIdentity nodeId) {
+    public void getGrantedAccess(final long lamport, final NodeIdentity nodeId) {
         failedNodes_.clear();
-        for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+        for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             if (cuEntry.getKey().compareTo(nodeId_) != 0) {
             try {
-            cuEntry.getValue().getAccess(lamport, nodeId.toString());
+                Thread thread = new Thread() {
+                        public void run() {
+                cuEntry.getValue().getAccess(lamport, nodeId.toString());
+                }
+                    };
+                    thread.start();
             } catch (Exception e) {
                     failedNodes_.add(cuEntry.getKey());
                 }
@@ -183,7 +188,7 @@ public class Network {
         try {
             sentence = masterConnectionUpdater_.getSentence();
         } catch (Exception e) {
-            System.err.println("Failed to get sentence.");
+            System.out.println("Failed to get sentence.");
            // ElectMasterNode();
         }
         return sentence;
@@ -194,7 +199,7 @@ public class Network {
             System.out.println("Network writes sentence to master: " + masterNodeId_.toString());
             masterConnectionUpdater_.writeSentence(sentence);
         } catch (Exception e) {
-            ElectMasterNode();
+          masterConnectionUpdater_.writeSentence(sentence);
         }
     }
 
