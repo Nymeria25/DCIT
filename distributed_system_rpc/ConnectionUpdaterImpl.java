@@ -3,9 +3,11 @@ package distributed_system_rpc;
 import java.net.MalformedURLException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -18,12 +20,16 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         network_ = new Network(nodeId);
         networkUpdateQueue_ = new ConcurrentLinkedQueue<>();
         sentenceUpdateQueue_ = new ConcurrentLinkedQueue<>();
+        okSet_ = Collections.synchronizedSet(new HashSet<NodeIdentity>());
         sentenceUpdate_ = false;
         networkUpdate_ = false;
         raMutex_ = false;
+        raInterested_ = false;
+        raSemaphore_ = "REALEASED";
         iAmMaster_ = false;
         algorithm_ = "";
         sentence_ = "";
+        networkSize_ = 0;
     }
     
     @Override
@@ -52,8 +58,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     // Syncronised read/write cycle.
     @Override
     public boolean readWrite(String algorithm) {
-       // network_.ElectMasterNode();
 
+        networkSize_ = network_.getSize();
         algorithm_ = algorithm;
         if (algorithm_.length() > 0 && !iAmMaster_) {
             List<String> appendedWords = ReadWriteImpl();
@@ -70,6 +76,12 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             }
 
             System.out.println("Number of words not appended: " + numNonAppended);
+            try {
+                // To make sure everyone is done.
+                Thread.sleep(4000);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ConnectionUpdaterImpl.class.getName()).log(Level.SEVERE, null, ex);
+            }
             System.exit(0);
         }
         return false;
@@ -117,39 +129,105 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;
     }
 
-    @Override
-    public boolean ricartAgrawalaReq(String nodeIdp) {
-        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        network_.getGrantedAccess(lamport_, nodeId);
-        // while (!network_.hasGrantedAccess()) {}
-
-        raMutex_ = true;
-        return true;
-    }
-
-    @Override
-    public boolean doneRicartAgrawalaReq() {
-        raMutex_ = false;
-        return true;
-    }
-
-    public boolean getAccess(long lamport, String nodeIdp) {
-        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        lamport_ = Math.max(lamport_, lamport) + 1;
-        System.err.println("My lamport " + lamport_);
-        System.err.println("Their lamport " + lamport);
-
-        System.err.println("My node id " + nodeId_.toString());
-        System.err.println("Their node id " + nodeIdp);
-        System.err.println("Mutex state: " + raMutex_);
-        while (!(raMutex_ == false && CompareExtendedLamport(lamport,
-                nodeId) == -1)) {
-            System.err.println("in while");
+   // @Override
+    public boolean ricartAgrawalaReq() {
+        System.out.println("Want permission.");
+        raSemaphore_ = "WANTED";
+      //  raInterested_ = true;
+      //  raMutex_ = false;
+        lamport_++;
+        network_.ricartAgrawalaReq(lamport_, nodeId_.toString());
+        
+        while (okSet_.size() < networkSize_ - 1) {
+            try {
+                Thread.sleep(generateRandomWaitingTime(100, 200));
+                System.out.println("Waiting for permission");
+                System.out.println("okCounter = " + okSet_.size());
+                System.out.println("networkSize = " + networkSize_);
+            } catch (InterruptedException ex) {
+            }
         }
+        
+        System.out.println("Got lock!");
+       // raMutex_ = true;
+        raSemaphore_ = "HELD";
+        return true;
+    }
+    
+    // @Override
+    public boolean doneRicartAgrawalaReq() {
+        //raMutex_ = false;
+       // raInterested_ = false;
+        okSet_.clear();
+        raSemaphore_ = "REALEASED";
+        System.out.println("Released lock!");
         return true;
     }
 
+
+    @Override
+    public boolean getAccess(long lamport, String nodeIdp) {
+        
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        
+        while ("HELD".equals(raSemaphore_) || ("WANTED".equals(raSemaphore_) && 
+                CompareExtendedLamport(lamport, nodeId) < 0)) {
+            try {
+                System.out.println("Blocked");
+                Thread.sleep(generateRandomWaitingTime(100, 200));
+            } catch (InterruptedException ex) {
+                // nothing
+            }
+        }
+        
+        lamport_ = Math.max(lamport, lamport_) + 1;
+        network_.sendOK(nodeId);
+        System.out.println("Sent ok!");
+        return true;
+        /*
+        if (raInterested_ == false) {
+            // Not interested, give access.
+            System.out.println(nodeId_.toString() + " not interested. Sent ok.");
+            network_.sendOK(nodeId);
+            return true;
+        }
+        
+        // Interested, but did not lock yet. Compare extended lamport clocks.
+        if (raMutex_ == false) {  
+            System.out.println("My lamport: " + lamport_);
+            System.out.println("Their lamport: " + lamport);
+            System.out.println(CompareExtendedLamport(lamport, nodeId));
+            // If my extended lamport clock is greater, give priority.
+            if (CompareExtendedLamport(lamport, nodeId) > 0) {
+                System.out.println("Interested, but with lower priority. Sent ok.");
+                network_.sendOK(nodeId);
+                return true;
+            }
+        }
+        
+        while (raMutex_ == true) {
+            try {
+                System.out.println("I have lock!");
+                Thread.sleep(generateRandomWaitingTime(100, 200));
+            } catch (InterruptedException ex) {
+                // nothing
+            }
+        }
+        
+        lamport_ = Math.max(lamport, lamport_) + 1;
+        network_.sendOK(nodeId);
+        System.out.println("Sent ok!");
+        return true;
+        */
+    }
     
+    @Override
+    public boolean OK(String nodeIdp) {
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        okSet_.add(nodeId);
+        return true;
+    }
+
 
     private int generateRandomWaitingTime(int Min, int Max) {
         return Min + (int) (Math.random() * ((Max - Min) + 1));
@@ -296,12 +374,11 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneSentenceUpdate(nodeId_);
                 } else {
-                    network_.ricartAgrawalaReq(nodeId_);
-                    network_.performSentenceUpdate(nodeId_);
+                    ricartAgrawalaReq();
                     clientSentence = network_.getSentenceFromMaster();
                     clientSentence += word;
                     network_.writeSentenceToMaster(clientSentence);
-                    network_.doneRicartAgrawalaReq();
+                    doneRicartAgrawalaReq();
                 }
 
             } catch (Exception e) {
@@ -355,10 +432,14 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     // Ricart Agrawala
     private boolean raMutex_;
+    private boolean raInterested_;
+    String raSemaphore_;
     private long lamport_;
+    Set<NodeIdentity> okSet_;
     NodeIdentity nodeId_;
 
     private boolean iAmMaster_;
+    int networkSize_;
 
     // Used for testing only.
     private volatile int index = 1;

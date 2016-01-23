@@ -40,9 +40,12 @@ public interface ConnectionUpdaterService {
     
     
     
-    public boolean ricartAgrawalaReq(String nodeIdp);
-    public boolean doneRicartAgrawalaReq();
+   // public boolean ricartAgrawalaReq(String nodeIdp, String sentence);
+   // public boolean doneRicartAgrawalaReq();
     public boolean getAccess(long lamport, String nodeIdp);
+    
+    // Got an OK from nodeIdp.
+    public boolean OK(String nodeIdp);
     
     public boolean setMaster(String nodeIdp);
     public boolean electMaster();

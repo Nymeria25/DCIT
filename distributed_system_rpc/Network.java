@@ -107,25 +107,32 @@ public class Network {
     }
 
     // Ricart Agrawala delegators
-    public void ricartAgrawalaReq(NodeIdentity nodeId) {
-        try {
-            masterConnectionUpdater_.ricartAgrawalaReq(nodeId.toString());
-        } catch (Exception e) {
-            System.out.println("Master is no longer in the network.");
-            //    ElectMasterNode();
+    public void ricartAgrawalaReq(final long lamport, final String nodeIdp) {
+        for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                : connectionUpdaters_.entrySet()) {
+            if (!cuEntry.getKey().toString().equals(nodeIdp)) {
+                Thread thread = new Thread() {
+                    public void run() {
+                        try {
+                            cuEntry.getValue().getAccess(lamport, nodeIdp);
+                        } catch (Exception e) {
+                            System.out.println("Ricart exception. Trying again.");
+                           // cuEntry.getValue().getAccess(lamport, nodeIdp);
+                        }
+
+                    }
+                };
+                thread.start();
+            }
         }
     }
 
-    public void doneRicartAgrawalaReq() {
-        try {
-            masterConnectionUpdater_.doneRicartAgrawalaReq();
-        } catch (Exception e) {
-            System.out.println("Master is no longer in the network.");
-            //   ElectMasterNode();
-        }
+    public void sendOK(NodeIdentity nodeId) {
+        System.out.println("NETWORK OK");
+        connectionUpdaters_.get(nodeId).OK(nodeId_.toString());
     }
+
     // -------
-
     public void notifyReadWrite(final String algorithm) {
         failedNodes_.clear();
         ElectMasterNode();
@@ -243,12 +250,12 @@ public class Network {
         }
         failedNodes_.clear();
     }
-    
+
     public void setMaster(NodeIdentity nodeId) {
         masterNodeId_ = nodeId;
         masterConnectionUpdater_ = connectionUpdaters_.get(masterNodeId_);
     }
-    
+
     public void ElectMasterNode() {
         System.out.println("Electing master node!");
         failedNodes_.clear();
@@ -285,21 +292,21 @@ public class Network {
                 }
             }
         } else {
-             for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
-                : connectionUpdaters_.entrySet()) {
-            try {
-                cuEntry.getValue().setMaster(nodeId_.toString());
-            } catch (Exception e) {
-               // nothing
+            for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
+                    : connectionUpdaters_.entrySet()) {
+                try {
+                    cuEntry.getValue().setMaster(nodeId_.toString());
+                } catch (Exception e) {
+                    // nothing
+                }
             }
-        }
         }
     }
 
     private int generateRandomWaitingTime(int Min, int Max) {
         return Min + (int) (Math.random() * ((Max - Min) + 1));
     }
-    
+
     private final ConcurrentSkipListMap<NodeIdentity, ConnectionUpdaterService> connectionUpdaters_;
     ConnectionUpdaterService masterConnectionUpdater_;
     private HashSet<NodeIdentity> failedNodes_;
