@@ -39,11 +39,8 @@ public interface ConnectionUpdaterService {
     public boolean doneSentenceUpdate(String nodeIdp);
     
     
-    
-   // public boolean ricartAgrawalaReq(String nodeIdp, String sentence);
-   // public boolean doneRicartAgrawalaReq();
+   
     public boolean getAccess(long lamport, String nodeIdp);
-    
     // Got an OK from nodeIdp.
     public boolean OK(String nodeIdp);
     

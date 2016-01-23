@@ -34,7 +34,7 @@ public class RpcClient {
     public void masterJob() throws InterruptedException {
         try {
         if (nodeServer_.isMaster()) {
-            Thread.sleep(30000);
+            Thread.sleep(35000);
             System.out.println("This is master!");
             System.exit(0);
         } }

@@ -114,7 +114,10 @@ public class Network {
                 Thread thread = new Thread() {
                     public void run() {
                         try {
-                            cuEntry.getValue().getAccess(lamport, nodeIdp);
+                            System.out.println("Requesting access from " + 
+                                    cuEntry.getKey().toString());
+                            ConnectionUpdaterService cu = cuEntry.getValue();
+                            cu.getAccess(lamport, nodeIdp);
                         } catch (Exception e) {
                             System.out.println("Ricart exception. Trying again.");
                            // cuEntry.getValue().getAccess(lamport, nodeIdp);
@@ -129,7 +132,10 @@ public class Network {
 
     public void sendOK(NodeIdentity nodeId) {
         System.out.println("NETWORK OK");
-        connectionUpdaters_.get(nodeId).OK(nodeId_.toString());
+        ConnectionUpdaterService cu = connectionUpdaters_.get(nodeId);
+        if (cu != null) {
+            cu.OK(nodeId_.toString());
+        }
     }
 
     // -------

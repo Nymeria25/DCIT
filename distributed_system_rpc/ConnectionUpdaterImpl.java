@@ -21,6 +21,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         networkUpdateQueue_ = new ConcurrentLinkedQueue<>();
         sentenceUpdateQueue_ = new ConcurrentLinkedQueue<>();
         okSet_ = Collections.synchronizedSet(new HashSet<NodeIdentity>());
+        replyQueue_ = new ConcurrentLinkedQueue<>();
         sentenceUpdate_ = false;
         networkUpdate_ = false;
         raMutex_ = false;
@@ -78,7 +79,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             System.out.println("Number of words not appended: " + numNonAppended);
             try {
                 // To make sure everyone is done.
-                Thread.sleep(4000);
+                Thread.sleep(10000);
             } catch (InterruptedException ex) {
                 Logger.getLogger(ConnectionUpdaterImpl.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -133,8 +134,6 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean ricartAgrawalaReq() {
         System.out.println("Want permission.");
         raSemaphore_ = "WANTED";
-      //  raInterested_ = true;
-      //  raMutex_ = false;
         lamport_++;
         network_.ricartAgrawalaReq(lamport_, nodeId_.toString());
         
@@ -149,18 +148,20 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         }
         
         System.out.println("Got lock!");
-       // raMutex_ = true;
+        okSet_.clear();
         raSemaphore_ = "HELD";
         return true;
     }
     
     // @Override
     public boolean doneRicartAgrawalaReq() {
-        //raMutex_ = false;
-       // raInterested_ = false;
-        okSet_.clear();
         raSemaphore_ = "REALEASED";
         System.out.println("Released lock!");
+        for (NodeIdentity nodeId : replyQueue_) {
+            System.out.println("Sending ok to " + nodeId.toString());
+            network_.sendOK(nodeId);
+        }
+        replyQueue_.clear();
         return true;
     }
 
@@ -170,55 +171,16 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         
-        while ("HELD".equals(raSemaphore_) || ("WANTED".equals(raSemaphore_) && 
+        if ("HELD".equals(raSemaphore_) || ("WANTED".equals(raSemaphore_) && 
                 CompareExtendedLamport(lamport, nodeId) < 0)) {
-            try {
-                System.out.println("Blocked");
-                Thread.sleep(generateRandomWaitingTime(100, 200));
-            } catch (InterruptedException ex) {
-                // nothing
-            }
-        }
-        
-        lamport_ = Math.max(lamport, lamport_) + 1;
-        network_.sendOK(nodeId);
-        System.out.println("Sent ok!");
-        return true;
-        /*
-        if (raInterested_ == false) {
-            // Not interested, give access.
-            System.out.println(nodeId_.toString() + " not interested. Sent ok.");
+            replyQueue_.add(nodeId);
+        } else {
             network_.sendOK(nodeId);
-            return true;
-        }
-        
-        // Interested, but did not lock yet. Compare extended lamport clocks.
-        if (raMutex_ == false) {  
-            System.out.println("My lamport: " + lamport_);
-            System.out.println("Their lamport: " + lamport);
-            System.out.println(CompareExtendedLamport(lamport, nodeId));
-            // If my extended lamport clock is greater, give priority.
-            if (CompareExtendedLamport(lamport, nodeId) > 0) {
-                System.out.println("Interested, but with lower priority. Sent ok.");
-                network_.sendOK(nodeId);
-                return true;
-            }
-        }
-        
-        while (raMutex_ == true) {
-            try {
-                System.out.println("I have lock!");
-                Thread.sleep(generateRandomWaitingTime(100, 200));
-            } catch (InterruptedException ex) {
-                // nothing
-            }
+            System.out.println(nodeId_.toString() + " Sent ok!");
         }
         
         lamport_ = Math.max(lamport, lamport_) + 1;
-        network_.sendOK(nodeId);
-        System.out.println("Sent ok!");
         return true;
-        */
     }
     
     @Override
@@ -426,16 +388,17 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     private boolean sentenceUpdate_;
     
     // CME waiting queue for master sentence update.
-    private ConcurrentLinkedQueue<NodeIdentity> sentenceUpdateQueue_;
+    private final ConcurrentLinkedQueue<NodeIdentity> sentenceUpdateQueue_;
     
     private String sentence_;
 
     // Ricart Agrawala
-    private boolean raMutex_;
-    private boolean raInterested_;
+    private final boolean raMutex_;
+    private final boolean raInterested_;
     String raSemaphore_;
     private long lamport_;
     Set<NodeIdentity> okSet_;
+    private final ConcurrentLinkedQueue<NodeIdentity> replyQueue_;
     NodeIdentity nodeId_;
 
     private boolean iAmMaster_;
