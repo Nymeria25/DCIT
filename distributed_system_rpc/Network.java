@@ -116,7 +116,7 @@ public class Network {
                             ConnectionUpdaterService cu = cuEntry.getValue();
                             cu.getAccess(lamport, nodeIdp);
                         } catch (Exception e) {
-                            System.out.println("Ricart exception.");
+                            System.err.println("Ricart exception.");
                         }
 
                     }

@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,6 +27,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         sentenceUpdate_ = false;
         networkUpdate_ = false;
         raSemaphore_ = "REALEASED";
+        lamport_ = new AtomicInteger(0);
         iAmMaster_ = false;
         algorithm_ = "";
         sentence_ = "";
@@ -149,8 +151,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean ricartAgrawalaReq() {
         System.out.println("Want permission.");
         raSemaphore_ = "WANTED";
-        lamport_++;
-        network_.ricartAgrawalaReq(lamport_, nodeId_.toString());
+        lamport_.incrementAndGet();
+        network_.ricartAgrawalaReq(lamport_.get(), nodeId_.toString());
         
         // Block the request until the caller got N-1 OKs.
         while (okSet_.size() < networkSize_ - 1) {
@@ -202,7 +204,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             System.out.println(nodeId_.toString() + " Sent ok!");
         }
         
-        lamport_ = Math.max(lamport, lamport_) + 1;
+        lamport_.set(Math.max(lamport, lamport_.get()) + 1);
         return true;
     }
     
@@ -404,11 +406,11 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
 
     private int CompareExtendedLamport(long lamport, NodeIdentity nodeId) {
-        if (lamport_ == lamport) {
+        if (lamport_.get() == lamport) {
             return nodeId_.compareTo(nodeId);
-        } else if (lamport_ < lamport) {
+        } else if (lamport_.get() < lamport) {
             return -1;
-        } else if (lamport_ > lamport) {
+        } else if (lamport_.get() > lamport) {
             return 1;
         }
         return 0;
@@ -440,7 +442,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     // Ricart Agrawala
     String raSemaphore_;
-    private int lamport_;
+    private AtomicInteger lamport_;
     Set<NodeIdentity> okSet_;
     private final ConcurrentLinkedQueue<NodeIdentity> replyQueue_;
     NodeIdentity nodeId_;
