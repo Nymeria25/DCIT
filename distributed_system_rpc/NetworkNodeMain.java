@@ -38,7 +38,7 @@ public class NetworkNodeMain {
                 primaryServerPort);
         final RpcClient rpcClient = new RpcClient(serverId, primaryServerId);
 
-        
+ /*        
         Thread t2 = new Thread() {
             public void run() {
                 try {
@@ -52,7 +52,7 @@ public class NetworkNodeMain {
                 }
             }
         };
-        t2.start();
+        t2.start(); */
 
         rpcClient.RunClientConsole();
     }

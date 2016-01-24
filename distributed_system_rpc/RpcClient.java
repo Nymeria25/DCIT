@@ -61,15 +61,14 @@ public class RpcClient {
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.print("Command: ");
-            String command = scanner.next();
+            String command = scanner.nextLine();
 
-            if ("$echo".equals(command)) {
-                String message = scanner.next();
-               // this.ClientEcho(message);
-            } else if ("$rwc".equals(command)) {
-               nodeServer_.readWriteReady("Centralized Mutual Exclusion");
-            } else if ("$rwra".equals(command)) {
-               nodeServer_.readWriteReady("Ricart Agrawala");
+            if ("$print_master".equals(command)) {
+                System.out.println(nodeServer_.getMaster());
+            } else if ("$start CME".equals(command)) {
+               nodeServer_.start("CME");
+            } else if ("$start RA".equals(command)) {
+               nodeServer_.start("RA");
             } else if ("$print".equals(command)) {
                 nodeServer_.print();
             } else if ("$help".equals(command)) {
@@ -78,7 +77,7 @@ public class RpcClient {
                 System.out.println("$rwra read/write with Ricart Agrawala.");
                 System.out.println("$print prints the latest updated list of nodes in the network.");
                 System.out.println("$kill signs off node.");
-            } else if ("$kill".equals(command)) {
+            } else if ("$signoff".equals(command)) {
                 SignOffImpl(nodeServer_, nodeServerNodeId_);
                 System.exit(0);
             }
@@ -99,7 +98,7 @@ public class RpcClient {
 
     private void SignOffImpl(ConnectionUpdaterService cu, NodeIdentity ni) {
         cu.performNetworkUpdate(nodeServerNodeId_.toString());
-        cu.signOff(ni.toString());
+        cu.signOff();
         cu.doneNetworkUpdate(nodeServerNodeId_.toString());
     }
     

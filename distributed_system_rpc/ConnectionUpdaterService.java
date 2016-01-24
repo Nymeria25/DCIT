@@ -47,6 +47,7 @@ public interface ConnectionUpdaterService {
     public boolean setMaster(String nodeIdp);
     public boolean electMaster();
     public boolean isMaster();
+    public String getMaster();
     
     
     // ------------------ Operation Handlers -------------------
@@ -66,7 +67,7 @@ public interface ConnectionUpdaterService {
     // Called by a node who wants to sign off from the network.
     // Broadcasts the operation to the other existing nodes in the network, to
     // update their lists of nodes.
-    public boolean signOff(String nodeIdp);
+    public boolean signOff();
     
     // Removes nodeIdp from the list of connected nodes of the current node.
     public boolean removeNodeFromNetwork(String nodeIdp);
@@ -74,7 +75,7 @@ public interface ConnectionUpdaterService {
     // Called by the node who starts the read/write process. Broadcasts the 
     // operation to the other existing nodes in the network, running the
     // readWrite() method in separate threads, for all the nodes.
-    public boolean readWriteReady(String algorithm);
+    public boolean start(String algorithm);
     
     // The actual read/write process.
     public boolean readWrite(String algorithm);

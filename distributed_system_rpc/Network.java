@@ -74,13 +74,11 @@ public class Network {
 
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
-            try {
+            
                 cuEntry.getValue().removeNodeFromNetwork(nodeId_.toString());
-            } catch (Exception e) {
-                failedNodes_.add(cuEntry.getKey());
-            }
+            
         }
-        RemoveFailedNodesFromNetwork();
+       // RemoveFailedNodesFromNetwork();
     }
 
     public void removeNode(NodeIdentity nodeId) {
@@ -235,7 +233,7 @@ public class Network {
         XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
         config.setEnabledForExtensions(true);
         config.setServerURL(new URL("http", nodeId.getKey(), nodeId.getValue(),
-                "xmlrpc"));
+                "mesh.rem"));
 
         // Creates an XmlRpcClient and instantiates a ClientFactory.
         XmlRpcClient rpcClient = new XmlRpcClient();
@@ -257,6 +255,9 @@ public class Network {
         failedNodes_.clear();
     }
 
+    public String getMasterId() {
+        return masterNodeId_.toString();
+    }
     public void setMaster(NodeIdentity nodeId) {
         masterNodeId_ = nodeId;
         masterConnectionUpdater_ = connectionUpdaters_.get(masterNodeId_);

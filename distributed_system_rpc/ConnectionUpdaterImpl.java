@@ -54,6 +54,10 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return iAmMaster_;
     }
     
+    public String getMaster() {
+        return network_.getMasterId();
+    }
+    
     // ------------------ Read/write cycle ------------------
     
     // Syncronised read/write cycle.
@@ -77,6 +81,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             }
 
             System.out.println("Number of words not appended: " + numNonAppended);
+            /*
             try {
                 // To make sure everyone is done.
                 Thread.sleep(10000);
@@ -84,6 +89,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
                 Logger.getLogger(ConnectionUpdaterImpl.class.getName()).log(Level.SEVERE, null, ex);
             }
             System.exit(0);
+            */
         }
         return false;
     }
@@ -198,7 +204,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
    
     // --------------
     @Override
-    public boolean readWriteReady(String algorithm) {
+    public boolean start(String algorithm) {
         algorithm_ = algorithm;
         network_.notifyReadWrite(algorithm_);
         return true;
@@ -278,9 +284,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     @Override
     // Notifies all the nodes in the network to remove nodeIdp from their list.
-    public boolean signOff(String nodeIdp) {
-        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
-        network_.signOff(nodeId);
+    public boolean signOff() {
+        network_.signOff(nodeId_);
         return true;
     }
 
@@ -329,10 +334,10 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
                 System.out.println(word);
                 appendedWords.add(word);
 
-                if (algorithm_.equals("Centralized Mutual Exclusion")) {
+                if (algorithm_.equals("CME")) {
                     network_.performSentenceUpdate(nodeId_);
                     clientSentence = network_.getSentenceFromMaster();
-                    clientSentence += word;
+                    clientSentence += word + " ";
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneSentenceUpdate(nodeId_);
                 } else {
