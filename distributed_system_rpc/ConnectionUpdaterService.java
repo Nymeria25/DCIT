@@ -40,7 +40,7 @@ public interface ConnectionUpdaterService {
     
     
    
-    public boolean getAccess(long lamport, String nodeIdp);
+    public boolean getAccess(int lamport, String nodeIdp);
     // Got an OK from nodeIdp.
     public boolean OK(String nodeIdp);
     

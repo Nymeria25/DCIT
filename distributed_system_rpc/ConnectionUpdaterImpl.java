@@ -190,7 +190,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     // Queues the caller iff the lock is held, or in case the lock is wanted,
     // if this extended lamport clock is smaller than the caller's lamport.
     @Override
-    public boolean getAccess(long lamport, String nodeIdp) {
+    public boolean getAccess(int lamport, String nodeIdp) {
         
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         
@@ -248,8 +248,10 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean writeMasterSentence(String nodeIdp, String sentence) {
         System.out.println("Writing: " + sentence);
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        if (sentence_.length() < sentence.length()) {
         String word = sentence.substring(sentence_.length(), sentence.length());
         UpdateSentenceHistory(nodeId, word);
+        }
         sentence_ = sentence;
         return true;
     }
@@ -438,7 +440,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
 
     // Ricart Agrawala
     String raSemaphore_;
-    private long lamport_;
+    private int lamport_;
     Set<NodeIdentity> okSet_;
     private final ConcurrentLinkedQueue<NodeIdentity> replyQueue_;
     NodeIdentity nodeId_;

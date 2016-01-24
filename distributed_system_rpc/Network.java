@@ -104,7 +104,7 @@ public class Network {
     }
 
     // Ricart Agrawala delegators
-    public void ricartAgrawalaReq(final long lamport, final String nodeIdp) {
+    public void ricartAgrawalaReq(final int lamport, final String nodeIdp) {
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
             if (!cuEntry.getKey().toString().equals(nodeIdp)) {
@@ -130,7 +130,10 @@ public class Network {
         System.out.println("NETWORK OK");
         ConnectionUpdaterService cu = connectionUpdaters_.get(nodeId);
         if (cu != null) {
-            cu.OK(nodeId_.toString());
+            try {cu.OK(nodeId_.toString()); }
+            catch (Exception e) {
+                //
+            }
         }
     }
 
@@ -169,7 +172,7 @@ public class Network {
     }
 
     // Ricart Agrawala
-    public void getGrantedAccess(final long lamport, final NodeIdentity nodeId) {
+    public void getGrantedAccess(final int lamport, final NodeIdentity nodeId) {
         failedNodes_.clear();
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
