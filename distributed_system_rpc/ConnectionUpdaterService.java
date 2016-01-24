@@ -90,10 +90,11 @@ public interface ConnectionUpdaterService {
     
     //
     public String getMasterSentence();
+    public Vector<String> getSentenceUpdateHistory(String nodeIdp);
    // public String getSentenceFromMaster();
     
     //
-    public boolean writeMasterSentence(String sentence);
+    public boolean writeMasterSentence(String nodeIdp, String sentence);
   //  public boolean writeSentenceToMaster(String sentence);
     
     // ------------------ Helpers -------------------

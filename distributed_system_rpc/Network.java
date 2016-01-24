@@ -27,7 +27,6 @@ public class Network {
         try {
             AddConnectionUpdater(nodeId);
         } catch (MalformedURLException ex) {
-            // trolo
         }
     }
 
@@ -74,7 +73,7 @@ public class Network {
 
         for (Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
-            
+            // TODO: maybe add back the try/catch?
                 cuEntry.getValue().removeNodeFromNetwork(nodeId_.toString());
             
         }
@@ -117,8 +116,7 @@ public class Network {
                             ConnectionUpdaterService cu = cuEntry.getValue();
                             cu.getAccess(lamport, nodeIdp);
                         } catch (Exception e) {
-                            System.out.println("Ricart exception. Trying again.");
-                           // cuEntry.getValue().getAccess(lamport, nodeIdp);
+                            System.out.println("Ricart exception.");
                         }
 
                     }
@@ -140,7 +138,6 @@ public class Network {
     public void notifyReadWrite(final String algorithm) {
         failedNodes_.clear();
         ElectMasterNode();
-        // System.out.println("Elected master node: " + masterNodeId_.toString());
 
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
@@ -191,6 +188,17 @@ public class Network {
         }
         RemoveFailedNodesFromNetwork();
     }
+    
+    public Vector<String> getSentenceUpdateHistory(NodeIdentity nodeId) {
+        Vector<String> v = new Vector<>();
+        try {
+            v = masterConnectionUpdater_.getSentenceUpdateHistory(nodeId.toString());
+        } catch (Exception e) {
+            System.out.println("Failed to get sentence update history.");
+            // ElectMasterNode();
+        }
+        return v;
+    }
 
     public String getSentenceFromMaster() {
         String sentence = "";
@@ -206,9 +214,9 @@ public class Network {
     public void writeSentenceToMaster(String sentence) {
         try {
             System.out.println("Network writes sentence to master: " + masterNodeId_.toString());
-            masterConnectionUpdater_.writeMasterSentence(sentence);
+            masterConnectionUpdater_.writeMasterSentence(nodeId_.toString(), sentence);
         } catch (Exception e) {
-            masterConnectionUpdater_.writeMasterSentence(sentence);
+            masterConnectionUpdater_.writeMasterSentence(nodeId_.toString(), sentence);
         }
     }
 

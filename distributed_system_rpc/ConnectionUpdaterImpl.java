@@ -10,6 +10,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,12 +25,11 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         replyQueue_ = new ConcurrentLinkedQueue<>();
         sentenceUpdate_ = false;
         networkUpdate_ = false;
-        raMutex_ = false;
-        raInterested_ = false;
         raSemaphore_ = "REALEASED";
         iAmMaster_ = false;
         algorithm_ = "";
         sentence_ = "";
+        sentenceHistory_ = new ConcurrentSkipListMap<>();
         networkSize_ = 0;
     }
     
@@ -54,6 +54,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return iAmMaster_;
     }
     
+    @Override
     public String getMaster() {
         return network_.getMasterId();
     }
@@ -72,11 +73,19 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             System.out.println("Master's sentence: ");
             String masterString = network_.getSentenceFromMaster();
             System.out.println(masterString);
+            
+            Vector<String> masterAppendedWords = network_.getSentenceUpdateHistory(nodeId_);
 
+            System.out.println("Words successfully appended to master: ");
+            for (String word : masterAppendedWords) {
+                System.out.println(word);
+            }
+            
             int numNonAppended = 0;
             for (String word : appendedWords) {
-                if (!masterString.contains(word)) {
+                if (!masterAppendedWords.contains(word)) {
                     numNonAppended++;
+                    System.out.println(word + " was not appended!");
                 }
             }
 
@@ -94,7 +103,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return false;
     }
 
-    // CME
+    // ------------------ CME ------------------
     // Acquires lock over the master sentence.
     @Override
     public boolean performSentenceUpdate(String nodeIdp) {
@@ -136,13 +145,14 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;
     }
 
-   // @Override
+    // ------------------ RA ------------------
     public boolean ricartAgrawalaReq() {
         System.out.println("Want permission.");
         raSemaphore_ = "WANTED";
         lamport_++;
         network_.ricartAgrawalaReq(lamport_, nodeId_.toString());
         
+        // Block the request until the caller got N-1 OKs.
         while (okSet_.size() < networkSize_ - 1) {
             try {
                 Thread.sleep(generateRandomWaitingTime(100, 200));
@@ -153,16 +163,20 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
             }
         }
         
+        // Got OK from all the other nodes, acquire lock.
         System.out.println("Got lock!");
         okSet_.clear();
         raSemaphore_ = "HELD";
         return true;
     }
     
-    // @Override
+    
     public boolean doneRicartAgrawalaReq() {
+        // Releases lock.
         raSemaphore_ = "REALEASED";
         System.out.println("Released lock!");
+        
+        // Send OK to all the queued nodes.
         for (NodeIdentity nodeId : replyQueue_) {
             System.out.println("Sending ok to " + nodeId.toString());
             network_.sendOK(nodeId);
@@ -172,6 +186,9 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     }
 
 
+    // The main logic of Ricart Agrawala.
+    // Queues the caller iff the lock is held, or in case the lock is wanted,
+    // if this extended lamport clock is smaller than the caller's lamport.
     @Override
     public boolean getAccess(long lamport, String nodeIdp) {
         
@@ -189,6 +206,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;
     }
     
+    // Got an OK message from nodeIdp. Updates the set of received OKs.
     @Override
     public boolean OK(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
@@ -219,13 +237,33 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public String getMasterSentence() {
         return sentence_;
     }
+    
+    @Override
+    public Vector<String> getSentenceUpdateHistory(String nodeIdp) {
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        return sentenceHistory_.get(nodeId);
+    }
 
     @Override
-    public boolean writeMasterSentence(String sentence) {
+    public boolean writeMasterSentence(String nodeIdp, String sentence) {
         System.out.println("Writing: " + sentence);
+        NodeIdentity nodeId = new NodeIdentity(nodeIdp);
+        String word = sentence.substring(sentence_.length(), sentence.length());
+        UpdateSentenceHistory(nodeId, word);
         sentence_ = sentence;
-        //System.out.println(nodeIdp + " released access to update.");
         return true;
+    }
+    
+    private void UpdateSentenceHistory(NodeIdentity nodeId, String word) {
+        if (sentenceHistory_.containsKey(nodeId)) {
+            Vector<String> entries = sentenceHistory_.get(nodeId);
+            entries.add(word);
+            sentenceHistory_.put(nodeId, entries);
+        } else {
+            Vector<String> entries = new Vector<>();
+            entries.add(word);
+            sentenceHistory_.put(nodeId, entries);
+        }
     }
 
     // ------------------ Network builder methods ------------------
@@ -270,8 +308,8 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;
     }
 
-    @Override
     // Adds nodeIdp to the list of connected nodes of each node in the network.
+    @Override
     public boolean addNodeToNetwork(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         try {
@@ -282,15 +320,15 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         return true;
     }
 
-    @Override
     // Notifies all the nodes in the network to remove nodeIdp from their list.
+    @Override
     public boolean signOff() {
         network_.signOff(nodeId_);
         return true;
     }
-
-    @Override
+    
     // Removes nodeIdp from the list of connected nodes.
+    @Override
     public boolean removeNodeFromNetwork(String nodeIdp) {
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         network_.removeNode(nodeId);
@@ -337,7 +375,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
                 if (algorithm_.equals("CME")) {
                     network_.performSentenceUpdate(nodeId_);
                     clientSentence = network_.getSentenceFromMaster();
-                    clientSentence += word + " ";
+                    clientSentence += word;
                     network_.writeSentenceToMaster(clientSentence);
                     network_.doneSentenceUpdate(nodeId_);
                 } else {
@@ -396,10 +434,9 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     private final ConcurrentLinkedQueue<NodeIdentity> sentenceUpdateQueue_;
     
     private String sentence_;
+    ConcurrentSkipListMap<NodeIdentity, Vector<String>> sentenceHistory_;
 
     // Ricart Agrawala
-    private final boolean raMutex_;
-    private final boolean raInterested_;
     String raSemaphore_;
     private long lamport_;
     Set<NodeIdentity> okSet_;
