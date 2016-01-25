@@ -47,6 +47,12 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         if (nodeId.equals(nodeId_)) {
             iAmMaster_ = true;
         }
+        sentence_ = "";
+        lamport_.set(0);
+        replyQueue_.clear();
+        sentenceHistory_.clear();
+        sentenceUpdateQueue_.clear();
+        
         network_.setMaster(nodeId);
         return true;
     }
@@ -151,13 +157,14 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     public boolean ricartAgrawalaReq() {
         System.out.println("Want permission.");
         raSemaphore_ = "WANTED";
-        lamport_.incrementAndGet();
-        network_.ricartAgrawalaReq(lamport_.get(), nodeId_.toString());
+       // lamport_.incrementAndGet();
+        int newLamport = network_.ricartAgrawalaReq(lamport_.get(), nodeId_.toString());
+        lamport_.set(newLamport);
         
         // Block the request until the caller got N-1 OKs.
         while (okSet_.size() < networkSize_ - 1) {
             try {
-                Thread.sleep(generateRandomWaitingTime(100, 200));
+                Thread.sleep(generateRandomWaitingTime(200, 1000));
                 System.out.println("Waiting for permission");
                 System.out.println("okCounter = " + okSet_.size());
                 System.out.println("networkSize = " + networkSize_);
@@ -193,18 +200,22 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
     // if this extended lamport clock is smaller than the caller's lamport.
     @Override
     public boolean getAccess(int lamport, String nodeIdp) {
-        
+        lamport_.set(Math.max(lamport, lamport_.get()) + 1);
         NodeIdentity nodeId = new NodeIdentity(nodeIdp);
         
         if ("HELD".equals(raSemaphore_) || ("WANTED".equals(raSemaphore_) && 
                 CompareExtendedLamport(lamport, nodeId) < 0)) {
             replyQueue_.add(nodeId);
+            System.out.println("added to queue");
         } else {
             network_.sendOK(nodeId);
             System.out.println(nodeId_.toString() + " Sent ok!");
         }
         
-        lamport_.set(Math.max(lamport, lamport_.get()) + 1);
+        System.out.println("my lamport " + lamport_.get());
+        System.out.println("their lamport " + lamport);
+        System.out.println("comparison: " + CompareExtendedLamport(lamport, nodeId));
+        
         return true;
     }
     
@@ -371,7 +382,7 @@ public class ConnectionUpdaterImpl implements ConnectionUpdaterService {
         List<String> appendedWords = new ArrayList<String>();
         while (System.currentTimeMillis() - startTime < totalTime) {
             try {
-                Thread.sleep(generateRandomWaitingTime(100, 200));
+                Thread.sleep(generateRandomWaitingTime(1000, 5000));
                 String word = dictionary.getRandomWord();
                 System.out.println(word);
                 appendedWords.add(word);

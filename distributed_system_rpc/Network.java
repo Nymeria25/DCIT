@@ -104,26 +104,28 @@ public class Network {
     }
 
     // Ricart Agrawala delegators
-    public void ricartAgrawalaReq(final int lamport, final String nodeIdp) {
+    public int ricartAgrawalaReq(int lamport, final String nodeIdp) {
         for (final Map.Entry<NodeIdentity, ConnectionUpdaterService> cuEntry
                 : connectionUpdaters_.entrySet()) {
-            if (!cuEntry.getKey().toString().equals(nodeIdp)) {
+            if (cuEntry.getKey().toString().compareTo(nodeIdp) != 0) {
+                lamport++;
+                final int timestamp = lamport;
                 Thread thread = new Thread() {
                     public void run() {
-                        try {
+                        
                             System.out.println("Requesting access from " + 
                                     cuEntry.getKey().toString());
                             ConnectionUpdaterService cu = cuEntry.getValue();
-                            cu.getAccess(lamport, nodeIdp);
-                        } catch (Exception e) {
-                            System.err.println("Ricart exception.");
-                        }
+                            cu.getAccess(timestamp, nodeIdp);
+                        
 
                     }
                 };
                 thread.start();
             }
+           
         }
+         return lamport;
     }
 
     public void sendOK(NodeIdentity nodeId) {
